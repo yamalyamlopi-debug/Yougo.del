@@ -1,10 +1,9 @@
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  BusinessPortal.jsx — ✅ Fixed: uses shared supabase
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./src/lib/supabase";
 
-const supabase = createClient(
-  "https://eppsgrewrxdjdctlrebf.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwcHNncmV3cnhkamRjdGxyZWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMzM1OTcsImV4cCI6MjA4ODcwOTU5N30.IRs4mGsMYFG9VRPH7zPHvnWbXTANnaen9Ky-2dNDQSA"
-);
 
 const C = {
   red: "#C8102E", lightRed: "#FEF2F2", darkRed: "#991B1B",
