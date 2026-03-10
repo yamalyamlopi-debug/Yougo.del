@@ -1,7 +1,6 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  OrdersPage.jsx — Order history with tabs
-//  ✅ Fixed: STATUS_MAP uses Arabic enum values
-//     matching Supabase schema
+//  OrdersPage.jsx
+//  ✅ FIX: filters orders by user_id — no more seeing other people's orders!
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +15,6 @@ const TABS = [
   { key: "cancelled", label: "בוטלו" },
 ];
 
-// ✅ Arabic status values matching Supabase enum
 const STATUS_MAP = {
   "جديد":           { label: "ממתין לאישור", color: C.gold,   icon: "⏳" },
   "قيد التحضير":    { label: "בהכנה",        color: C.orange, icon: "👨‍🍳" },
@@ -30,23 +28,30 @@ const ACTIVE_STATUSES = ["جديد", "قيد التحضير", "في الطريق
 function timeAgo(iso) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return "עכשיו";
   if (mins < 60) return `לפני ${mins} דקות`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `לפני ${hrs} שעות`;
+  if (hrs < 24)  return `לפני ${hrs} שעות`;
   return `לפני ${Math.floor(hrs / 24)} ימים`;
 }
 
-export default function OrdersPage({ cartCount }) {
+export default function OrdersPage({ cartCount, user }) {
   const navigate = useNavigate();
-  const [tab, setTab] = useState("all");
+  const [tab, setTab]       = useState("all");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("orders").select("*").order("created_at", { ascending: false })
+    if (!user?.id) { setLoading(false); return; }
+
+    // ✅ FIX: filter by user_id so each user sees only their orders
+    supabase.from("orders")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
       .then(({ data }) => { setOrders(data || []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, [user?.id]);
 
   const filtered = orders.filter(o => {
     if (tab === "all")       return true;
@@ -116,10 +121,10 @@ export default function OrdersPage({ cartCount }) {
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                     {["جديد", "قيد التحضير", "في الطريق", "مكتمل"].map(s => {
-                      const steps = ["جديد", "قيد التحضير", "في الطريق", "مكتمل"];
-                      const curIdx = steps.indexOf(order.status);
+                      const steps   = ["جديد", "قيد التحضير", "في الطريق", "مكتمل"];
+                      const curIdx  = steps.indexOf(order.status);
                       const thisIdx = steps.indexOf(s);
-                      const done = thisIdx <= curIdx;
+                      const done    = thisIdx <= curIdx;
                       return (
                         <div key={s} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                           <div style={{ width: 22, height: 22, borderRadius: "50%", background: done ? C.red : C.lightGray, display: "flex", alignItems: "center", justifyContent: "center" }}>
