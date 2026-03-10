@@ -9,16 +9,6 @@ import { supabase } from "../lib/supabase";
 
 const CATEGORIES = ["הכל","פיצה","המבורגר","סושי","פלאפל","עוף","סלטים","קינוחים","שתייה"];
 
-const MOCK_RESTAURANTS = [
-  { id:"r1", name:"פיצה רומא", cuisine:"פיצה", rating:4.8, delivery_time:25, delivery_fee:12, min_order:60, image:"🍕", is_popular:true, is_open:true, category:"פיצה" },
-  { id:"r2", name:"בורגר הבית", cuisine:"המבורגר", rating:4.6, delivery_time:20, delivery_fee:0, min_order:80, image:"🍔", is_popular:true, is_open:true, category:"המבורגר" },
-  { id:"r3", name:"סושי עם רוח", cuisine:"סושי", rating:4.9, delivery_time:35, delivery_fee:15, min_order:100, image:"🍣", is_popular:false, is_open:true, category:"סושי" },
-  { id:"r4", name:"פלאפל אבו נאסר", cuisine:"פלאפל", rating:4.7, delivery_time:15, delivery_fee:0, min_order:40, image:"🧆", is_popular:true, is_open:true, category:"פלאפל" },
-  { id:"r5", name:"שיפודי הכפר", cuisine:"עוף", rating:4.5, delivery_time:30, delivery_fee:10, min_order:70, image:"🍗", is_popular:false, is_open:false, category:"עוף" },
-  { id:"r6", name:"סלט ומה שביניהם", cuisine:"סלטים", rating:4.3, delivery_time:20, delivery_fee:8, min_order:50, image:"🥗", is_popular:false, is_open:true, category:"סלטים" },
-  { id:"r7", name:"גלידריה דולצ׳ה", cuisine:"קינוחים", rating:4.9, delivery_time:25, delivery_fee:12, min_order:45, image:"🍦", is_popular:true, is_open:true, category:"קינוחים" },
-];
-
 const BANNERS = [
   { id:1, bg:"linear-gradient(135deg,#C8102E,#7B0D1E)", emoji:"🎁", title:"משלוח חינם!", sub:"בהזמנה מעל ₪150", tag:"מוגבל בזמן" },
   { id:2, bg:"linear-gradient(135deg,#F97316,#DC2626)", emoji:"🔥", title:"קוד: NAAT10", sub:"10% הנחה על כל הזמנה", tag:"קוד פרומו" },
@@ -27,7 +17,8 @@ const BANNERS = [
 
 export default function HomePage({ cart, add, rem, cartCount }) {
   const navigate = useNavigate();
-  const [restaurants, setRestaurants] = useState(MOCK_RESTAURANTS);
+  const [restaurants, setRestaurants] = useState([]);
+  const [loadingRests, setLoadingRests] = useState(true);
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("הכל");
   const [bannerIdx, setBannerIdx] = useState(0);
@@ -40,11 +31,11 @@ export default function HomePage({ cart, add, rem, cartCount }) {
     return () => clearInterval(t);
   }, []);
 
-  // Try to load from Supabase, fallback to mock
+  
   useEffect(() => {
     supabase.from("restaurants").select("*").eq("is_approved", true)
-      .then(({ data }) => { if (data && data.length > 0) setRestaurants(data); })
-      .catch(() => {});
+      .then(({ data }) => { setRestaurants(data || []); setLoadingRests(false); })
+      .catch(() => setLoadingRests(false));
   }, []);
 
   const filtered = restaurants.filter(r => {
