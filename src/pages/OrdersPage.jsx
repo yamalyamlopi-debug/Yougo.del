@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { C, IcoCheck, IcoFork } from "../components/Icons";
 import BottomNav from "../components/BottomNav";
 import { supabase } from "../lib/supabase";
+import GuestBanner from "../components/GuestBanner";
 
 const TABS = [
   { key: "all",       label: "הכל" },
@@ -35,8 +36,9 @@ function timeAgo(iso) {
   return `לפני ${Math.floor(hrs / 24)} ימים`;
 }
 
-export default function OrdersPage({ cartCount, user }) {
+export default function OrdersPage({ cartCount, user, guest, onLogin }) {
   const navigate = useNavigate();
+  if (guest) return <GuestBanner onLogin={onLogin} message="כדי לצפות בהזמנות, יש להתחבר" />;
   const [tab, setTab]       = useState("all");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
