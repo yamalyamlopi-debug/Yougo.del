@@ -23,6 +23,7 @@ export default function App() {
   const { cart, setCart, addToCart, removeFromCart, cartCount, cartTotal } = useCart();
   const [user, setUser]     = useState(null);
   const [authed, setAuthed] = useState(false);
+  const [guest, setGuest]   = useState(false); // ✅ guest mode
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export default function App() {
         if (meta.firstName) {
           setUser({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, phone: meta.phone || "", gender: meta.gender, age: meta.age });
           setAuthed(true);
+          setGuest(false);
         }
       }
       setChecking(false);
@@ -47,11 +49,11 @@ export default function App() {
   async function handleLogout() {
     await supabase.auth.signOut();
     setAuthed(false);
+    setGuest(false);
     setUser(null);
     setCart([]);
   }
 
-  // ✅ update user state after profile edit
   function handleUserUpdate(updates) {
     setUser(prev => ({ ...prev, ...updates }));
   }
@@ -63,27 +65,27 @@ export default function App() {
     </div>
   );
 
-  if (!authed) return (
+  // ✅ Show auth page unless logged in OR guest mode
+  if (!authed && !guest) return (
     <AuthPage
-      onDone={u => { setUser(u); setAuthed(true); }}
+      onDone={u => { setUser(u); setAuthed(true); setGuest(false); }}
+      onGuest={() => setGuest(true)}
       onBusiness={() => window.location.hash = "#/business"}
     />
   );
 
   return (
     <Routes>
-      <Route path="/"               element={<HomePage cart={cart} add={addToCart} rem={removeFromCart} cartCount={cartCount}/>}/>
+      <Route path="/"               element={<HomePage cart={cart} add={addToCart} rem={removeFromCart} cartCount={cartCount} guest={guest}/>}/>
       <Route path="/restaurant/:id" element={<RestaurantPage cart={cart} add={addToCart} rem={removeFromCart} cartCount={cartCount} cartTotal={cartTotal} setCart={setCart}/>}/>
-      {/* ✅ FIX: user passed → CartPage saves user_id with order */}
-      <Route path="/cart"           element={<CartPage cart={cart} add={addToCart} rem={removeFromCart} setCart={setCart} cartCount={cartCount} user={user}/>}/>
-      {/* ✅ FIX: user passed → OrdersPage fetches only THIS user's orders */}
-      <Route path="/orders"         element={<OrdersPage cartCount={cartCount} user={user}/>}/>
-      <Route path="/profile"        element={<ProfilePage user={user} cartCount={cartCount} onLogout={handleLogout} onUserUpdate={handleUserUpdate}/>}/>
+      <Route path="/cart"           element={<CartPage cart={cart} add={addToCart} rem={removeFromCart} setCart={setCart} cartCount={cartCount} user={user} guest={guest} onLogin={() => setGuest(false)}/>}/>
+      <Route path="/orders"         element={<OrdersPage cartCount={cartCount} user={user} guest={guest} onLogin={() => setGuest(false)}/>}/>
+      <Route path="/profile"        element={<ProfilePage user={user} cartCount={cartCount} onLogout={handleLogout} onUserUpdate={handleUserUpdate} guest={guest} onLogin={() => setGuest(false)}/>}/>
       <Route path="/market"         element={<MarketPage cartCount={cartCount}/>}/>
       <Route path="/privacy"        element={<PrivacyPage/>}/>
       <Route path="/terms"          element={<TermsPage/>}/>
-      <Route path="/cards"          element={<CardsPage/>}/>
-      <Route path="/invite"         element={<InvitePage user={user}/>}/>
+      <Route path="/cards"          element={<CardsPage guest={guest} onLogin={() => setGuest(false)}/>}/>
+      <Route path="/invite"         element={<InvitePage user={user} guest={guest} onLogin={() => setGuest(false)}/>}/>
       <Route path="/support"        element={<SupportPage user={user}/>}/>
       <Route path="/business"       element={<BusinessPortal onBack={() => window.history.back()}/>}/>
       <Route path="/admin"          element={
