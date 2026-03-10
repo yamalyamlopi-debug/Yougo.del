@@ -53,10 +53,24 @@ var BANNERS = [
   { id: 4, title: "Yougo פרמיום", sub: "הצטרף וחסוך 20%", tag: "הצטרף עכשיו", bg: "linear-gradient(135deg,#7C3AED 0%,#4C1D95 100%)" },
 ];
 
-var CAT_MAP = {
-  chicken: "עוף", burger: "המבורגר", shawarma: "שווארמה",
-  pizza: "פיצה", sushi: "סושי", drinks: "מיצים", sweets: "קפה",
+// ✅ FIX: match Supabase category field (case-insensitive, multi-keyword)
+var CAT_KEYWORDS = {
+  chicken:  ["עוף", "chicken", "دجاج"],
+  burger:   ["המבורגר", "burger", "برغر"],
+  shawarma: ["שווארמה", "shawarma", "شاورما"],
+  pizza:    ["פיצה", "pizza", "بيتزا"],
+  sushi:    ["סושי", "sushi", "سوشي"],
+  drinks:   ["משקאות", "מיצים", "drinks", "مشروبات"],
+  sweets:   ["קינוחים", "קפה", "sweets", "حلويات"],
 };
+
+function matchesCat(restaurant, catId) {
+  if (catId === "all") return true;
+  const keywords = CAT_KEYWORDS[catId] || [];
+  const haystack = [restaurant.category, restaurant.name, restaurant.cuisine_type]
+    .filter(Boolean).join(" ").toLowerCase();
+  return keywords.some(k => haystack.includes(k.toLowerCase()));
+}
 
 export default function HomePage({ cart, add, rem, cartCount }) {
   const navigate = useNavigate();
@@ -79,9 +93,12 @@ export default function HomePage({ cart, add, rem, cartCount }) {
   }, []);
 
   var filtered = restaurants.filter(function(r) {
-    if (searchQ) return r.name?.includes(searchQ) || r.category?.includes(searchQ);
-    if (cat === "all") return true;
-    return r.category?.includes(CAT_MAP[cat] || "");
+    if (searchQ) {
+      const q = searchQ.toLowerCase();
+      return r.name?.toLowerCase().includes(q) || r.category?.toLowerCase().includes(q);
+    }
+    // ✅ FIX: use matchesCat for robust category matching
+    return matchesCat(r, cat);
   });
 
   return (
