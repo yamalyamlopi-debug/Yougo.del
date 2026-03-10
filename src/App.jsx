@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import AdminReal from './AdminReal.jsx';
 
 const C = {
   red:"#C8102E", gold:"#F5A623", bg:"#F7F7F8", white:"#FFFFFF",
@@ -240,7 +241,7 @@ export default function App(){
   var cartTotal = cart.reduce(function(s,c){ return s+c.price*c.qty; },0);
 
   if(!isLoggedIn) return <AuthFlow onDone={function(u){ setLoggedUser(u); setIsLoggedIn(true); }}/>;
-  if(view==="admin") return <AdminDashboard onBack={function(){ setView("app"); }}/>;
+  if(view==="admin") return <AdminReal onBack={function(){ setView("app"); }}/>;
   if(view==="profile") return <ProfilePage onBack={function(){ setView("app"); }} cartCount={cartCount} setView={setView} user={loggedUser} onLogout={function(){ setIsLoggedIn(false); setLoggedUser(null); setView("app"); setCart([]); }}/>;
   if(view==="myorders") return <MyOrdersPage onBack={function(){ setView("app"); }} cartCount={cartCount} setView={setView}/>;
   if(view==="cartpage") return <CartPage cart={cart} add={addToCart} rem={remFromCart} onBack={function(){ setView("app"); }} setCart={setCart} cartCount={cartCount} setView={setView}/>;
