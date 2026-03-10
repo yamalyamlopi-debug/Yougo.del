@@ -1,14 +1,8 @@
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  App.jsx — Slim router wrapper (was 2930 lines!)
-//  ✅ React Router v6
-//  ✅ useCart hook
-//  ✅ Admin protected by AdminAuthGuard
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useCart } from "./hooks/useCart";
-import { AdminAuthGuard } from "./lib/adminAuth";
+import { useCart } from "./useCart"; // تأكد أنه في نفس مجلد src
+import { AdminAuthGuard } from "./adminAuth";
 
-// Lazy-loaded pages
+// Pages
 import HomePage       from "./pages/HomePage";
 import RestaurantPage from "./pages/RestaurantPage";
 import CartPage       from "./pages/CartPage";
@@ -16,13 +10,13 @@ import OrdersPage     from "./pages/OrdersPage";
 import ProfilePage    from "./pages/ProfilePage";
 import AuthPage       from "./pages/AuthPage";
 import PrivacyPage    from "./pages/PrivacyPage";
-import TermsPage      from "./pages/TermsPage";
+import TermsPage      from "./pages/termsPage"; // لاحظ حرف t صغير كما في ملفك
 import CardsPage      from "./pages/CardsPage";
 import InvitePage     from "./pages/InvitePage";
 import SupportPage    from "./pages/SupportPage";
 import MarketPage     from "./pages/MarketPage";
-import BusinessPortal from "./BusinessPortal";   // ✅ fixed
-import AdminReal      from "./AdminReal";         // ✅ fixed
+import BusinessPortal from "./BusinessPortal";   
+import AdminReal      from "./AdminReal";         
 
 import { useState } from "react";
 
@@ -34,7 +28,7 @@ export default function App() {
   if (!authed) return (
     <AuthPage
       onDone={u => { setUser(u); setAuthed(true); }}
-      onBusiness={() => window.location.hash = "#/business"}
+      onBack={() => {}} 
     />
   );
 
@@ -51,7 +45,7 @@ export default function App() {
       <Route path="/cards"       element={<CardsPage/>}/>
       <Route path="/invite"      element={<InvitePage user={user}/>}/>
       <Route path="/support"     element={<SupportPage user={user}/>}/>
-      <Route path="/business"    element={<BusinessPortal onBack={() => history.back()}/>}/>
+      <Route path="/business"    element={<BusinessPortal onBack={() => window.history.back()}/>}/>
       <Route path="/admin"       element={
         <AdminAuthGuard onBack={() => window.history.back()}>
           {({ onLogout }) => <AdminReal onBack={onLogout}/>}
