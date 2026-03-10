@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import AdminReal from './AdminReal.jsx';
+import BusinessPortal from './BusinessPortal.jsx';
 
 const C = {
   red:"#C8102E", gold:"#F5A623", bg:"#F7F7F8", white:"#FFFFFF",
@@ -240,7 +241,8 @@ export default function App(){
   var cartCount = cart.reduce(function(s,c){ return s+c.qty; },0);
   var cartTotal = cart.reduce(function(s,c){ return s+c.price*c.qty; },0);
 
-  if(!isLoggedIn) return <AuthFlow onDone={function(u){ setLoggedUser(u); setIsLoggedIn(true); }}/>;
+  if(view==="business") return <BusinessPortal onBack={function(){ setView("app"); setIsLoggedIn(isLoggedIn); }}/>;
+  if(!isLoggedIn) return <AuthFlow onDone={function(u){ setLoggedUser(u); setIsLoggedIn(true); }} onBusiness={function(){ setView("business"); }}/>;
   if(view==="admin") return <AdminReal onBack={function(){ setView("app"); }}/>;
   if(view==="profile") return <ProfilePage onBack={function(){ setView("app"); }} cartCount={cartCount} setView={setView} user={loggedUser} onLogout={function(){ setIsLoggedIn(false); setLoggedUser(null); setView("app"); setCart([]); }}/>;
   if(view==="myorders") return <MyOrdersPage onBack={function(){ setView("app"); }} cartCount={cartCount} setView={setView}/>;
@@ -1821,7 +1823,7 @@ function CartPage({cart,add,rem,onBack,setCart,cartCount,setView}){
 // ── AUTH FLOW ─────────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-function AuthFlow({onDone}){
+function AuthFlow({onDone, onBusiness}){
   // steps: "splash" -> "phone" -> "otp" -> "register" -> "done"
   var [step,setStep] = useState("splash");
   var [phone,setPhone] = useState("");
@@ -2039,6 +2041,17 @@ function AuthFlow({onDone}){
             <svg width="18" height="22" viewBox="0 0 814 1000"><path fill="white" d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 663 0 541.8c0-207.5 135.4-317.1 269-317.1 70.6 0 133.1 46.5 178.8 46.5 43.6 0 113-49.2 192.4-49.2 30.8 0 110.7 2.6 165.7 78.8zm-170.5-276c28.7-35 49.7-83.4 49.7-131.8 0-6.7-.6-13.5-1.9-19.5-46.8 1.9-101.8 31.3-134.7 69.4-25.3 28.7-49.7 74-49.7 123.1 0 7.4 1.3 14.9 1.9 17.2 3.2.6 8.4 1.3 13.6 1.3 43 0 95.6-27.7 121.1-60.7z"/></svg>
             המשך עם Apple
           </button>
+
+
+          {/* Business Portal */}
+          <div style={{marginTop:24,borderTop:"1.5px solid "+C.lightGray,paddingTop:20}}>
+            <div style={{textAlign:"center",fontSize:12,color:C.gray,marginBottom:12,fontWeight:600}}>هل لديك مطعم أو متجر؟</div>
+            <button onClick={function(){ onBusiness(); }}
+              style={{width:"100%",background:"linear-gradient(135deg,#111827,#1f2937)",color:"white",border:"none",borderRadius:14,padding:"14px",fontSize:14,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 4px 14px rgba(0,0,0,0.2)"}}>
+              <span style={{fontSize:20}}>🏪</span>
+              بوابة الأعمال — سجّل مطعمك
+            </button>
+          </div>
 
           <div style={{textAlign:"center",color:C.gray,fontSize:11,marginTop:16,lineHeight:1.6}}>
             בהמשך אתה מסכים ל<span style={{color:C.red,fontWeight:700}}>תנאי השימוש</span> ול<span style={{color:C.red,fontWeight:700}}>מדיניות הפרטיות</span> של Yougo
