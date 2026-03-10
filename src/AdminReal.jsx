@@ -1,10 +1,10 @@
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  AdminReal.jsx — ✅ Fixed: uses shared supabase client
+//  Protected by AdminAuthGuard — see src/lib/adminAuth.jsx
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./src/lib/supabase";
 
-const supabase = createClient(
-  "https://eppsgrewrxdjdctlrebf.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwcHNncmV3cnhkamRjdGxyZWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMzM1OTcsImV4cCI6MjA4ODcwOTU5N30.IRs4mGsMYFG9VRPH7zPHvnWbXTANnaen9Ky-2dNDQSA"
-);
 
 /* ═══════════════════════════════════════════════════════════════════
    RICH MOCK DATA
