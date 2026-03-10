@@ -23,13 +23,6 @@ const STATUS_MAP = {
   cancelled:  { label: "בוטלה", color: C.gray,  icon: "❌" },
 };
 
-const MOCK_ORDERS = [
-  { id: "ORD-1001", restaurant: "פיצה רומא", items: ["פיצה מרגריטה x1", "קולה x2"], total: 72, status: "on_the_way", created_at: new Date(Date.now() - 20 * 60000).toISOString() },
-  { id: "ORD-1002", restaurant: "בורגר הבית", items: ["קלאסיק בורגר x2", "צ׳יפס x1"], total: 132, status: "completed", created_at: new Date(Date.now() - 2 * 86400000).toISOString() },
-  { id: "ORD-1003", restaurant: "פלאפל אבו נאסר", items: ["מנת פלאפל x3"], total: 54, status: "completed", created_at: new Date(Date.now() - 5 * 86400000).toISOString() },
-  { id: "ORD-1004", restaurant: "סושי עם רוח", items: ["סלמון רול x2"], total: 96, status: "cancelled", created_at: new Date(Date.now() - 7 * 86400000).toISOString() },
-];
-
 function timeAgo(iso) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -42,15 +35,12 @@ function timeAgo(iso) {
 export default function OrdersPage({ cartCount }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState("all");
-  const [orders, setOrders] = useState(MOCK_ORDERS);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.from("orders").select("*").order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (data && data.length > 0) setOrders(data);
-        setLoading(false);
-      })
+      .then(({ data }) => { setOrders(data || []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
