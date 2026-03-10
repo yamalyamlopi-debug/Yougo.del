@@ -6,27 +6,6 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { C, IcoBack, IcoCart, IcoClock, IcoStar, IcoTruck, IcoPlus, IcoMinus, IcoFire } from "../components/Icons";
 import { supabase } from "../lib/supabase";
 
-const MOCK_MENU = {
-  r1: [
-    { id:"m1", name:"פיצה מרגריטה", description:"עגבניה, מוצרלה, בזיל", price:48, category:"פיצות", emoji:"🍕" },
-    { id:"m2", name:"פיצה פסטו", description:"פסטו ביתי, עגבניות שרי, גבינת עיזים", price:58, category:"פיצות", emoji:"🍕" },
-    { id:"m3", name:"פיצה BBQ", description:"עוף, בצל מקורמל, רוטב BBQ", price:62, category:"פיצות", emoji:"🍕" },
-    { id:"m4", name:"כדורי בצק עם גבינה", description:"6 כדורים עם רוטב מרינרה", price:28, category:"תוספות", emoji:"🧀" },
-    { id:"m5", name:"קולה", description:"250 מ\"ל", price:12, category:"שתייה", emoji:"🥤" },
-  ],
-  r2: [
-    { id:"m6", name:"קלאסיק בורגר", description:"180 גר׳ בקר, חסה, עגבנייה, מלפפון חמוץ", price:55, category:"בורגרים", emoji:"🍔" },
-    { id:"m7", name:"דאבל צ׳יזבורגר", description:"2×150 גר׳ בקר, 2 פרוסות גבינה", price:72, category:"בורגרים", emoji:"🍔" },
-    { id:"m8", name:"צ׳יפס ביתי", description:"תפוחי אדמה טריים", price:22, category:"תוספות", emoji:"🍟" },
-  ],
-};
-
-const DEFAULT_MENU = [
-  { id:"d1", name:"מנת השף", description:"מנה מיוחדת של היום", price:65, category:"מנות עיקריות", emoji:"🍽️" },
-  { id:"d2", name:"מנה קלה", description:"סלט ולחם", price:38, category:"סלטים", emoji:"🥗" },
-  { id:"d3", name:"קינוח", description:"קינוח ביתי", price:22, category:"קינוחים", emoji:"🍰" },
-];
-
 export default function RestaurantPage({ cart, add, rem, cartCount, cartTotal }) {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -35,13 +14,9 @@ export default function RestaurantPage({ cart, add, rem, cartCount, cartTotal })
   const [activeSection, setActiveSection] = useState(null);
 
   useEffect(() => {
-    // Try Supabase
     supabase.from("menu_items").select("*").eq("restaurant_id", id).eq("is_available", true)
-      .then(({ data }) => {
-        if (data && data.length > 0) setMenu(data);
-        else setMenu(MOCK_MENU[id] || DEFAULT_MENU);
-      })
-      .catch(() => setMenu(MOCK_MENU[id] || DEFAULT_MENU));
+      .then(({ data }) => setMenu(data || []))
+      .catch(() => setMenu([]));
   }, [id]);
 
   const sections = [...new Set(menu.map(m => m.category))];
