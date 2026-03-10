@@ -1,5 +1,6 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  AuthPage.jsx — Real Supabase Email OTP Auth
+//  ✅ رقم هاتف + إمكانية الدخول لحساب موجود
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState, useEffect } from "react";
 import { C, IcoCheck, IcoBack, IcoFork, IcoStore, IcoTruck } from "../components/Icons";
@@ -32,7 +33,7 @@ export default function AuthPage({ onDone, onBusiness }) {
   const [emailError, setEmailError] = useState("");
   const [countdown, setCountdown]   = useState(60);
   const [canResend, setCanResend]   = useState(false);
-  const [form, setForm]             = useState({ firstName: "", lastName: "", gender: "", age: "" });
+  const [form, setForm]             = useState({ firstName: "", lastName: "", phone: "", gender: "", age: "" });
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading]       = useState(false);
   const [success, setSuccess]       = useState(false);
@@ -52,13 +53,14 @@ export default function AuthPage({ onDone, onBusiness }) {
     return () => clearInterval(t);
   }, [step]);
 
+  // ✅ تحقق من session موجودة عند فتح التطبيق
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const u = session.user;
         const meta = u.user_metadata || {};
         if (meta.firstName) {
-          onDone({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, gender: meta.gender, age: meta.age });
+          onDone({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, phone: meta.phone || "", gender: meta.gender, age: meta.age });
         }
       }
     });
@@ -106,9 +108,11 @@ export default function AuthPage({ onDone, onBusiness }) {
     }
     const u = data.user;
     const meta = u?.user_metadata || {};
+    // ✅ مستخدم موجود — دخول مباشر
     if (meta.firstName) {
-      onDone({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, gender: meta.gender, age: meta.age });
+      onDone({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, phone: meta.phone || "", gender: meta.gender, age: meta.age });
     } else {
+      // مستخدم جديد — إكمال البيانات
       setStep("register");
     }
   }
@@ -124,6 +128,8 @@ export default function AuthPage({ onDone, onBusiness }) {
     if (!form.firstName.trim()) errs.firstName = "שדה חובה";
     if (!form.lastName.trim())  errs.lastName  = "שדה חובה";
     if (!form.gender)           errs.gender    = "שדה חובה";
+    const phone = form.phone.replace(/\D/g, "");
+    if (!phone || phone.length < 9) errs.phone = "מספר לא תקין";
     const age = parseInt(form.age);
     if (!form.age || isNaN(age) || age < 13 || age > 100) errs.age = "גיל לא תקין (13-100)";
     return errs;
@@ -134,19 +140,19 @@ export default function AuthPage({ onDone, onBusiness }) {
     if (Object.keys(errs).length > 0) { setFormErrors(errs); return; }
     setLoading(true);
     const { error } = await supabase.auth.updateUser({
-      data: { firstName: form.firstName, lastName: form.lastName, gender: form.gender, age: form.age }
+      data: { firstName: form.firstName, lastName: form.lastName, phone: form.phone, gender: form.gender, age: form.age }
     });
     setLoading(false);
     if (error) return;
     setSuccess(true);
     setTimeout(() => {
       supabase.auth.getUser().then(({ data: { user } }) => {
-        onDone({ id: user.id, email: user.email, name: form.firstName + " " + form.lastName, firstName: form.firstName, gender: form.gender, age: form.age });
+        onDone({ id: user.id, email: user.email, name: form.firstName + " " + form.lastName, firstName: form.firstName, phone: form.phone, gender: form.gender, age: form.age });
       });
     }, 1600);
   }
 
-  // SPLASH
+  // ── SPLASH ─────────────────────────────────────
   if (step === "splash") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: "linear-gradient(160deg,#C8102E 0%,#7B0D1E 60%,#3D0511 100%)", minHeight: "100vh", maxWidth: 430, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", direction: "rtl" }}>
       <div style={{ position: "absolute", width: 400, height: 400, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.06)", top: -100, left: -100 }} />
@@ -169,31 +175,30 @@ export default function AuthPage({ onDone, onBusiness }) {
     </div>
   );
 
-  // EMAIL
+  // ── EMAIL ──────────────────────────────────────
   if (step === "email") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: C.bg, minHeight: "100vh", maxWidth: 430, margin: "0 auto", direction: "rtl", display: "flex", flexDirection: "column" }}>
       <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "40px 24px 60px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", bottom: -30, left: 0, right: 0, height: 60, background: C.bg, borderRadius: "50% 50% 0 0" }} />
         <div style={{ marginBottom: 16 }}><YougoLogo size={44} /></div>
         <div style={{ color: "white", fontSize: 26, fontWeight: 900 }}>ברוך הבא!</div>
-        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, marginTop: 6 }}>הזן את האימייל שלך להמשך</div>
+        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, marginTop: 6 }}>הזן את האימייל שלך — נשלח קוד אימות</div>
       </div>
       <div style={{ flex: 1, padding: "30px 24px" }}>
         <div style={{ fontSize: 13, color: C.gray, marginBottom: 6, fontWeight: 600 }}>כתובת אימייל</div>
-        <input
-          value={email}
-          onChange={e => { setEmail(e.target.value); setEmailError(""); }}
+        <input value={email} onChange={e => { setEmail(e.target.value); setEmailError(""); }}
           onKeyDown={e => { if (e.key === "Enter") handleEmailSubmit(); }}
-          placeholder="example@email.com"
-          type="email"
-          style={{ width: "100%", background: "white", border: "1.5px solid " + (emailError ? C.red : C.lightGray), borderRadius: 14, padding: "13px 16px", fontSize: 15, outline: "none", direction: "ltr", textAlign: "left", fontFamily: "Arial,sans-serif", color: C.dark, marginBottom: 4 }}
-        />
+          placeholder="example@email.com" type="email"
+          style={{ width: "100%", background: "white", border: "1.5px solid " + (emailError ? C.red : C.lightGray), borderRadius: 14, padding: "13px 16px", fontSize: 15, outline: "none", direction: "ltr", textAlign: "left", fontFamily: "Arial,sans-serif", color: C.dark, marginBottom: 4 }} />
         {emailError && <div style={{ color: C.red, fontSize: 12, marginBottom: 8 }}>{emailError}</div>}
-        <div style={{ color: C.gray, fontSize: 11, marginBottom: 28, marginTop: 8 }}>נשלח לך קוד אימות לאימייל שלך</div>
+        <div style={{ color: C.gray, fontSize: 11, marginBottom: 28, marginTop: 8 }}>
+          אם יש לך חשבון — תיכנס ישירות. אחרת — ניצור חשבון חדש 🙂
+        </div>
         <button onClick={handleEmailSubmit} disabled={loading}
           style={{ width: "100%", background: loading ? "rgba(200,16,46,0.5)" : C.red, color: "white", border: "none", borderRadius: 16, padding: "15px", fontSize: 15, fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 6px 20px rgba(200,16,46,0.35)" }}>
           {loading ? <><LoadSpinner />שולח קוד...</> : <><IcoCheck s={18} c="white" />המשך</>}
         </button>
+
         <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "24px 0" }}>
           <div style={{ flex: 1, height: 1, background: C.lightGray }} />
           <span style={{ color: C.gray, fontSize: 12 }}>או המשך עם</span>
@@ -209,6 +214,7 @@ export default function AuthPage({ onDone, onBusiness }) {
             Apple — قريباً
           </button>
         </div>
+
         <div style={{ marginTop: 20, borderTop: "1.5px solid " + C.lightGray, paddingTop: 20 }}>
           <div style={{ textAlign: "center", fontSize: 12, color: C.gray, marginBottom: 10, fontWeight: 600 }}>هل لديك مطعم أو متجر؟</div>
           <button onClick={onBusiness}
@@ -224,7 +230,7 @@ export default function AuthPage({ onDone, onBusiness }) {
     </div>
   );
 
-  // OTP
+  // ── OTP ────────────────────────────────────────
   if (step === "otp") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: C.bg, minHeight: "100vh", maxWidth: 430, margin: "0 auto", direction: "rtl", display: "flex", flexDirection: "column" }}>
       <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "40px 24px 60px", position: "relative", overflow: "hidden" }}>
@@ -260,7 +266,7 @@ export default function AuthPage({ onDone, onBusiness }) {
     </div>
   );
 
-  // REGISTER
+  // ── REGISTER ───────────────────────────────────
   if (step === "register") {
     if (success) return (
       <div style={{ fontFamily: "Arial,sans-serif", background: "linear-gradient(160deg,#C8102E,#7B0D1E)", minHeight: "100vh", maxWidth: 430, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", direction: "rtl" }}>
@@ -275,6 +281,7 @@ export default function AuthPage({ onDone, onBusiness }) {
         <style>{`@keyframes successPop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}*{box-sizing:border-box}`}</style>
       </div>
     );
+
     return (
       <div style={{ fontFamily: "Arial,sans-serif", background: C.bg, minHeight: "100vh", maxWidth: 430, margin: "0 auto", direction: "rtl", display: "flex", flexDirection: "column" }}>
         <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "36px 24px 55px", position: "relative", overflow: "hidden" }}>
@@ -297,6 +304,22 @@ export default function AuthPage({ onDone, onBusiness }) {
               </div>
             ))}
           </div>
+
+          {/* رقم الهاتف */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 12, color: C.gray, fontWeight: 600, marginBottom: 5 }}>מספר טלפון *</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ background: "white", border: "1.5px solid " + C.lightGray, borderRadius: 13, padding: "12px 13px", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                <span style={{ fontSize: 16 }}>🇮🇱</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.dark }}>+972</span>
+              </div>
+              <input value={form.phone} onChange={e => { const v = e.target.value.replace(/[^\d-]/g, ""); setForm(p => ({ ...p, phone: v })); setFormErrors(p => ({ ...p, phone: "" })); }}
+                placeholder="05X-XXX-XXXX" maxLength={12}
+                style={{ flex: 1, background: "white", border: "1.5px solid " + (formErrors.phone ? C.red : C.lightGray), borderRadius: 13, padding: "12px 13px", fontSize: 14, outline: "none", direction: "ltr", textAlign: "left", fontFamily: "Arial,sans-serif" }} />
+            </div>
+            {formErrors.phone && <div style={{ color: C.red, fontSize: 10, marginTop: 3 }}>{formErrors.phone}</div>}
+          </div>
+
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 12, color: C.gray, fontWeight: 600, marginBottom: 8 }}>מגדר *</div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -309,6 +332,7 @@ export default function AuthPage({ onDone, onBusiness }) {
             </div>
             {formErrors.gender && <div style={{ color: C.red, fontSize: 10, marginTop: 4 }}>{formErrors.gender}</div>}
           </div>
+
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 12, color: C.gray, fontWeight: 600, marginBottom: 5 }}>גיל *</div>
             <input value={form.age} onChange={e => { const v = e.target.value.replace(/\D/g, ""); setForm(p => ({ ...p, age: v })); setFormErrors(p => ({ ...p, age: "" })); }}
@@ -316,6 +340,7 @@ export default function AuthPage({ onDone, onBusiness }) {
               style={{ width: "100%", background: "white", border: "1.5px solid " + (formErrors.age ? C.red : C.lightGray), borderRadius: 13, padding: "12px 13px", fontSize: 14, outline: "none", direction: "rtl", fontFamily: "Arial,sans-serif" }} />
             {formErrors.age && <div style={{ color: C.red, fontSize: 10, marginTop: 3 }}>{formErrors.age}</div>}
           </div>
+
           <button onClick={handleRegister} disabled={loading}
             style={{ width: "100%", background: loading ? "rgba(200,16,46,0.5)" : C.red, color: "white", border: "none", borderRadius: 16, padding: "15px", fontSize: 15, fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 6px 20px rgba(200,16,46,0.35)" }}>
             {loading ? <><LoadSpinner />יוצר חשבון...</> : <><IcoCheck s={18} c="white" />יצירת חשבון</>}
@@ -325,5 +350,6 @@ export default function AuthPage({ onDone, onBusiness }) {
       </div>
     );
   }
+
   return null;
 }
