@@ -2,8 +2,9 @@
 //  MarketPage.jsx — OLD DESIGN RESTORED
 //  White topbar + tabs, icon categories, grid cards
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 import {
   C, hexA,
   IcoSearch, IcoClose, IcoHome, IcoChevDown, IcoShield,
@@ -37,22 +38,23 @@ var MKTCATS = [
   { id: "dairy",  Cmp: MktDairy,  label: "מוצרי חלב" },
 ];
 
-var STORES = [
-  { id: "s1", name: "בלאק אנגוס",        cat: "קצביה",        emoji: "🥩", color: "#1A1A1A", rating: 5.0, reviews: 10,  open: true,  close: "22:00", location: "נחף - שכונת המגורשים" },
-  { id: "s2", name: "סופרמרקט חירנה",   cat: "סופרמרקט",    emoji: "🛒", color: "#16A34A", rating: 4.5, reviews: 100, open: true,  close: "23:30", location: "נחף" },
-  { id: "s3", name: "מלך מרקט",          cat: "סופרמרקט",    emoji: "👑", color: "#C8102E", rating: 4.8, reviews: 10,  open: true,  close: "00:00", location: "נחף" },
-  { id: "s4", name: "פאדי - שתייה",      cat: "משקאות",       emoji: "🥤", color: "#0EA5E9", rating: 5.0, reviews: 10,  open: true,  close: "20:30", location: "מג'ד אל-כרום", self: true },
-  { id: "s5", name: "קינג סטור",         cat: "חנות כללית",  emoji: "🏪", color: "#7C3AED", rating: 4.6, reviews: 30,  open: true,  close: "23:00", location: "ראמה" },
-  { id: "s6", name: "אל-ורד",            cat: "מכולת",        emoji: "🌸", color: "#EC4899", rating: 4.7, reviews: 45,  open: false, close: "21:00", location: "ראמה - מרכז השכונה" },
-];
+
 
 export default function MarketPage({ cartCount }) {
   const navigate = useNavigate();
+  const [stores, setStores] = useState([]);
+  const [loadingStores, setLoadingStores] = useState(true);
+
+  useEffect(function() {
+    supabase.from("stores").select("*").eq("active", true)
+      .then(function({ data }) { setStores(data || []); setLoadingStores(false); })
+      .catch(function() { setLoadingStores(false); });
+  }, []);
   const [mktCat, setMktCat] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQ, setSearchQ] = useState("");
 
-  var filtered = STORES.filter(function(s) {
+  var filtered = stores.filter(function(s) {
     if (searchQ) return s.name.includes(searchQ) || s.cat.includes(searchQ);
     return true;
   });
@@ -147,7 +149,17 @@ export default function MarketPage({ cartCount }) {
 
       {/* STORE GRID */}
       <div style={{ padding: "0 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 13 }}>
-        {filtered.map(function(s, i) {
+        {loadingStores ? (
+          <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 40, color: C.gray }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid " + C.lightGray, borderTopColor: C.red, animation: "spin .7s linear infinite", margin: "0 auto 12px" }} />
+            טוען חנויות...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "50px 0", color: C.gray }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🏪</div>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>אין חנויות זמינות</div>
+          </div>
+        ) : filtered.map(function(s, i) {
           return (
             <div key={s.id}
               style={{ background: C.white, borderRadius: 18, overflow: "hidden", cursor: "pointer", boxShadow: "0 2px 10px rgba(0,0,0,0.06)", animation: "fadeIn .4s ease " + (i * 60) + "ms both" }}>
@@ -180,9 +192,7 @@ export default function MarketPage({ cartCount }) {
             </div>
           );
         })}
-      </div>
-
-      <BottomNav cartCount={cartCount} />
+      </div>      <BottomNav cartCount={cartCount} />
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}*{box-sizing:border-box}::-webkit-scrollbar{display:none}`}</style>
     </div>
   );
