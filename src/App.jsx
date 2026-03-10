@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminReal from './AdminReal.jsx';
 import BusinessPortal from './BusinessPortal.jsx';
 import { AdminAuthGuard } from './lib/adminAuth.jsx';
+import { supabase } from './lib/supabase.js';
 
 const C = {
   red:"#C8102E", gold:"#F5A623", bg:"#F7F7F8", white:"#FFFFFF",
@@ -219,6 +220,17 @@ export default function App(){
   var [mktCat,setMktCat] = useState("all");
   var [searchQ,setSearchQ] = useState("");
   var [searchOpen,setSearchOpen] = useState(false);
+  var [liveRestaurants,setLiveRestaurants] = useState([]);
+
+  // جلب المطاعم الحقيقية من Supabase
+  useEffect(function(){
+    supabase.from('restaurants').select('*').then(function(res){
+      if(res.data && res.data.length > 0) setLiveRestaurants(res.data);
+    });
+  },[]);
+
+  // استخدم البيانات الحقيقية إذا موجودة، وإلا الوهمية
+  var activeRestaurants = liveRestaurants.length > 0 ? liveRestaurants : RESTAURANTS;
 
   useEffect(function(){
     var t = setInterval(function(){ setBanner(function(p){ return (p+1)%BANNERS.length; }); }, 3800);
@@ -257,7 +269,7 @@ export default function App(){
     onBack={function(){ setRestPage(null); }} cartCount={cartCount} cartTotal={cartTotal}
     cartOpen={cartOpen} setCartOpen={setCartOpen} setCart={setCart}/>;
 
-  var filtered = RESTAURANTS.filter(function(r){
+  var filtered = activeRestaurants.filter(function(r){
     if(searchQ) return r.name.includes(searchQ)||r.cat.includes(searchQ);
     if(cat==="all") return true;
     var m = {chicken:"עוף",burger:"המבורגר",shawarma:"שווארמה",pizza:"פיצה",sushi:"סושי",drinks:"מיצים",sweets:"קפה"};
@@ -332,7 +344,7 @@ export default function App(){
 
       {cartOpen && <CartModal cart={cart} total={cartTotal} add={addToCart} rem={remFromCart} onClose={function(){ setCartOpen(false); }} setCart={setCart}/>}
 
-      <BottomNav tab={tab} setTab={setTab} cartCount={cartCount} view={view} setView={setView}/>
+      <BottomNav tab={tab} setTab={setTab} cartCount={cartCount} view={view} setView={setView} setRestPage={setRestPage}/>
 
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}*{box-sizing:border-box}::-webkit-scrollbar{display:none}`}</style>
     </div>
@@ -713,7 +725,7 @@ function CartModal({cart,total,add,rem,onClose,setCart}){
 }
 
 // ── BOTTOM NAV ─────────────────────────────────────────────────────────────────
-function BottomNav({tab,setTab,cartCount,view,setView}){
+function BottomNav({tab,setTab,cartCount,view,setView,setRestPage}){
   var items = [
     {id:"profile",label:"פרופיל",I:IcoUser},
     {id:"myorders",label:"ההזמנות שלי",I:IcoOrders},
@@ -731,6 +743,7 @@ function BottomNav({tab,setTab,cartCount,view,setView}){
         return(
           <button key={t.id}
             onClick={function(){
+              setRestPage(null);
               if(t.id==="market"){ setView("app"); setTab("market"); }
               else if(t.id==="restaurants"){ setView("app"); setTab("restaurants"); }
               else setView(t.id);
