@@ -2,7 +2,7 @@
 //  BusinessPortal.jsx — ✅ Fixed: uses shared supabase
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState, useEffect } from "react";
-import { supabase } from "./src/lib/supabase";
+import { supabase } from "./lib/supabase";
 
 
 const C = {
