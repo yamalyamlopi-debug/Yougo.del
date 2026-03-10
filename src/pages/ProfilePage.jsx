@@ -1,40 +1,63 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  ProfilePage.jsx — User profile, settings, logout
+//  ProfilePage.jsx
+//  ✅ FIX: name/phone edits saved to Supabase user_metadata
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { C, IcoUser, IcoBack, IcoChevDown, IcoShield } from "../components/Icons";
 import BottomNav from "../components/BottomNav";
+import { supabase } from "../lib/supabase";
 
 const MENU_ITEMS = [
-  { icon: "📦", label: "ההזמנות שלי",         path: "/orders" },
-  { icon: "📍", label: "כתובות שמורות",         path: null,  key: "addresses" },
-  { icon: "💳", label: "אמצעי תשלום",           path: "/cards" },
-  { icon: "🎁", label: "הטבות וקופונים",         path: null,  key: "coupons" },
-  { icon: "👥", label: "הזמן חבר",              path: "/invite" },
-  { icon: "🛡️", label: "אבטחה",                path: null,  key: "security" },
-  { icon: "🔔", label: "התראות",                path: null,  key: "notifications" },
-  { icon: "❓", label: "תמיכה",                 path: "/support" },
-  { icon: "📄", label: "תנאי שימוש",            path: "/terms" },
-  { icon: "🔒", label: "מדיניות פרטיות",        path: "/privacy" },
+  { icon: "📦", label: "ההזמנות שלי",   path: "/orders" },
+  { icon: "📍", label: "כתובות שמורות", path: null, key: "addresses" },
+  { icon: "💳", label: "אמצעי תשלום",   path: "/cards" },
+  { icon: "🎁", label: "הטבות וקופונים", path: null, key: "coupons" },
+  { icon: "👥", label: "הזמן חבר",       path: "/invite" },
+  { icon: "🛡️", label: "אבטחה",          path: null, key: "security" },
+  { icon: "🔔", label: "התראות",          path: null, key: "notifications" },
+  { icon: "❓", label: "תמיכה",           path: "/support" },
+  { icon: "📄", label: "תנאי שימוש",     path: "/terms" },
+  { icon: "🔒", label: "מדיניות פרטיות", path: "/privacy" },
 ];
 
-export default function ProfilePage({ user, cartCount, onLogout }) {
+export default function ProfilePage({ user, cartCount, onLogout, onUserUpdate }) {
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(user?.name || "משתמש");
-  const [phone, setPhone] = useState(user?.phone || "050-0000000");
+  const [editing, setEditing]               = useState(false);
+  const [name, setName]                     = useState(user?.name || "משתמש");
+  const [phone, setPhone]                   = useState(user?.phone || "");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [notifs, setNotifs] = useState({ orders: true, promos: true, news: false });
+  const [notifs, setNotifs]                 = useState({ orders: true, promos: true, news: false });
+  const [saving, setSaving]                 = useState(false);
+  const [saveOk, setSaveOk]                 = useState(false);
 
-  const initials = name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase();
+  const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
   function handleNav(item) {
     if (item.path) { navigate(item.path); return; }
     if (item.key === "notifications") setEditing("notifications");
-    else if (item.key === "security") setEditing("security");
+    else if (item.key === "security")  setEditing("security");
     else if (item.key === "addresses") setEditing("addresses");
-    else if (item.key === "coupons") setEditing("coupons");
+    else if (item.key === "coupons")   setEditing("coupons");
+  }
+
+  // ✅ FIX: Save name to Supabase user_metadata
+  async function saveName() {
+    setSaving(true);
+    const parts = name.trim().split(" ");
+    const firstName = parts[0] || "";
+    const lastName  = parts.slice(1).join(" ") || "";
+    const { error } = await supabase.auth.updateUser({
+      data: { firstName, lastName, phone }
+    });
+    setSaving(false);
+    if (!error) {
+      setSaveOk(true);
+      // ✅ Update parent state so navbar reflects new name immediately
+      if (onUserUpdate) onUserUpdate({ name: name.trim(), firstName, phone });
+      setTimeout(() => setSaveOk(false), 2000);
+    }
+    setEditing(false);
   }
 
   return (
@@ -49,22 +72,38 @@ export default function ProfilePage({ user, cartCount, onLogout }) {
           </div>
           <div style={{ flex: 1 }}>
             {editing === "name" ? (
-              <input value={name} onChange={e => setName(e.target.value)} onBlur={() => setEditing(false)} autoFocus
-                style={{ background: "rgba(255,255,255,0.15)", border: "none", borderBottom: "2px solid white", color: "white", fontSize: 20, fontWeight: 900, outline: "none", width: "100%", fontFamily: "Arial,sans-serif" }} />
+              <div>
+                <input value={name} onChange={e => setName(e.target.value)} autoFocus
+                  style={{ background: "rgba(255,255,255,0.15)", border: "none", borderBottom: "2px solid white", color: "white", fontSize: 18, fontWeight: 900, outline: "none", width: "100%", fontFamily: "Arial,sans-serif", marginBottom: 6 }} />
+                <input value={phone} onChange={e => setPhone(e.target.value.replace(/[^\d-]/g, ""))}
+                  placeholder="מספר טלפון"
+                  style={{ background: "rgba(255,255,255,0.1)", border: "none", borderBottom: "1px solid rgba(255,255,255,0.4)", color: "rgba(255,255,255,0.9)", fontSize: 13, outline: "none", width: "100%", fontFamily: "Arial,sans-serif", direction: "ltr", textAlign: "right", marginBottom: 8 }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={saveName} disabled={saving}
+                    style={{ background: "white", color: C.red, border: "none", borderRadius: 10, padding: "7px 16px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                    {saving ? "שומר..." : saveOk ? "✅ נשמר" : "שמור"}
+                  </button>
+                  <button onClick={() => setEditing(false)}
+                    style={{ background: "rgba(255,255,255,0.15)", color: "white", border: "none", borderRadius: 10, padding: "7px 12px", fontSize: 12, cursor: "pointer" }}>
+                    ביטול
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ color: "white", fontSize: 20, fontWeight: 900 }}>{name}</div>
-                <button onClick={() => setEditing("name")} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, fontSize: 14 }}>
-                  ✏️
-                </button>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ color: "white", fontSize: 20, fontWeight: 900 }}>{name}</div>
+                  <button onClick={() => setEditing("name")} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.7, fontSize: 14 }}>✏️</button>
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, marginTop: 3 }}>{user?.email || phone || "לחץ לעריכה"}</div>
+                {saveOk && <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 11, marginTop: 4 }}>✅ השינויים נשמרו</div>}
               </div>
             )}
-            <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, marginTop: 3 }}>{phone}</div>
           </div>
         </div>
       </div>
 
-      {/* Sub-panel: notifications */}
+      {/* Notifications sub-panel */}
       {editing === "notifications" && (
         <div style={{ background: "white", borderRadius: 18, margin: "0 16px 12px", padding: "16px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -83,7 +122,7 @@ export default function ProfilePage({ user, cartCount, onLogout }) {
         </div>
       )}
 
-      {/* Sub-panel: security */}
+      {/* Security sub-panel */}
       {editing === "security" && (
         <div style={{ background: "white", borderRadius: 18, margin: "0 16px 12px", padding: "16px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -91,8 +130,8 @@ export default function ProfilePage({ user, cartCount, onLogout }) {
             <button onClick={() => setEditing(false)} style={{ background: "none", border: "none", cursor: "pointer", color: C.gray, fontSize: 12 }}>✕</button>
           </div>
           <div style={{ fontSize: 13, color: C.gray, lineHeight: 1.6 }}>
-            חשבונך מאובטח באמצעות OTP בטלפון <strong style={{ color: C.dark }}>{phone}</strong>.<br />
-            לשינוי מספר טלפון, פנה לתמיכה.
+            חשבונך מאובטח באמצעות OTP לאימייל <strong style={{ color: C.dark }}>{user?.email}</strong>.<br />
+            לשינוי אימייל, פנה לתמיכה.
           </div>
           <button onClick={() => navigate("/support")}
             style={{ marginTop: 14, background: C.ultra, border: "none", borderRadius: 12, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.dark }}>
@@ -101,7 +140,7 @@ export default function ProfilePage({ user, cartCount, onLogout }) {
         </div>
       )}
 
-      {/* Sub-panel: coupons */}
+      {/* Coupons sub-panel */}
       {editing === "coupons" && (
         <div style={{ background: "white", borderRadius: 18, margin: "0 16px 12px", padding: "16px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -116,7 +155,7 @@ export default function ProfilePage({ user, cartCount, onLogout }) {
         </div>
       )}
 
-      {/* Sub-panel: addresses */}
+      {/* Addresses sub-panel */}
       {editing === "addresses" && (
         <div style={{ background: "white", borderRadius: 18, margin: "0 16px 12px", padding: "16px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -135,7 +174,7 @@ export default function ProfilePage({ user, cartCount, onLogout }) {
         </div>
       )}
 
-      {/* Menu items */}
+      {/* Menu list */}
       <div style={{ padding: "0 16px" }}>
         <div style={{ background: "white", borderRadius: 18, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.07)", marginBottom: 16 }}>
           {MENU_ITEMS.map((item, i) => (
@@ -170,7 +209,7 @@ export default function ProfilePage({ user, cartCount, onLogout }) {
           </div>
         )}
 
-        <div style={{ textAlign: "center", color: C.gray, fontSize: 11, marginBottom: 8 }}>YOUGO v2.0 · כל הזכויות שמורות</div>
+        <div style={{ textAlign: "center", color: C.gray, fontSize: 11, marginBottom: 8 }}>YOUGO v2.0 · כل الحقوق محفوظة</div>
       </div>
 
       <BottomNav cartCount={cartCount} />
