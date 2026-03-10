@@ -1,5 +1,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  HomePage.jsx — Restaurant list, banners, search
+//  ✅ Fixed field names to match Supabase schema:
+//     active (not is_approved/is_open), logo_emoji (not image)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -22,25 +24,21 @@ export default function HomePage({ cart, add, rem, cartCount }) {
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("הכל");
   const [bannerIdx, setBannerIdx] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const bannerRef = useRef(null);
 
-  // Auto-scroll banner every 3.8s
   useEffect(() => {
     const t = setInterval(() => setBannerIdx(p => (p + 1) % BANNERS.length), 3800);
     return () => clearInterval(t);
   }, []);
 
-  
   useEffect(() => {
-    supabase.from("restaurants").select("*").eq("is_approved", true)
+    supabase.from("restaurants").select("*").eq("active", true) // ✅ was: is_approved
       .then(({ data }) => { setRestaurants(data || []); setLoadingRests(false); })
       .catch(() => setLoadingRests(false));
   }, []);
 
   const filtered = restaurants.filter(r => {
-    const matchCat = cat === "הכל" || r.category === cat || r.cuisine === cat;
-    const matchSearch = r.name.includes(search) || r.cuisine.includes(search);
+    const matchCat = cat === "הכל" || r.category === cat;
+    const matchSearch = !search || r.name?.toLowerCase().includes(search.toLowerCase()) || r.category?.includes(search);
     return matchCat && matchSearch;
   });
 
@@ -61,7 +59,7 @@ export default function HomePage({ cart, add, rem, cartCount }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", background: "white", borderRadius: 14, padding: "11px 14px", gap: 10 }}>
           <IcoSearch s={18} c={C.gray} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="חיפוש מסעדה או מאכל..."
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="חיפוש מסעדה..."
             style={{ flex: 1, border: "none", outline: "none", fontSize: 14, fontFamily: "Arial,sans-serif", direction: "rtl", background: "transparent", color: C.dark }} />
         </div>
       </div>
@@ -69,7 +67,7 @@ export default function HomePage({ cart, add, rem, cartCount }) {
       <div style={{ padding: "0 16px" }}>
 
         {/* Banner carousel */}
-        <div style={{ marginTop: 4, marginBottom: 16, position: "relative" }}>
+        <div style={{ marginTop: 4, marginBottom: 16 }}>
           <div style={{ background: BANNERS[bannerIdx].bg, borderRadius: 18, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", transition: "all 0.4s ease", minHeight: 90 }}>
             <div>
               <div style={{ background: "rgba(255,255,255,0.2)", color: "white", fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 6 }}>{BANNERS[bannerIdx].tag}</div>
@@ -95,34 +93,18 @@ export default function HomePage({ cart, add, rem, cartCount }) {
           ))}
         </div>
 
-        {/* Popular section */}
-        {cat === "הכל" && !search && (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-              <IcoFire s={16} /><span style={{ fontSize: 15, fontWeight: 800, color: C.dark }}>פופולרי עכשיו</span>
-            </div>
-            <div style={{ display: "flex", gap: 12, overflowX: "auto", marginBottom: 20, paddingBottom: 4, scrollbarWidth: "none" }}>
-              {restaurants.filter(r => r.is_popular && r.is_open).map(r => (
-                <div key={r.id} onClick={() => navigate(`/restaurant/${r.id}`, { state: r })}
-                  style={{ flexShrink: 0, width: 140, background: "white", borderRadius: 16, padding: "14px 12px", cursor: "pointer", boxShadow: "0 2px 10px rgba(0,0,0,0.07)" }}>
-                  <div style={{ fontSize: 36, textAlign: "center", marginBottom: 8 }}>{r.image}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, textAlign: "center", marginBottom: 4 }}>{r.name}</div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                    <IcoStar s={11} /><span style={{ fontSize: 11, fontWeight: 700, color: C.dark }}>{r.rating}</span>
-                    <span style={{ fontSize: 11, color: C.gray }}>· {r.delivery_time} דק׳</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* All restaurants */}
+        {/* Restaurant list */}
         <div style={{ fontSize: 15, fontWeight: 800, color: C.dark, marginBottom: 12 }}>
-          {cat === "הכל" ? "כל המסעדות" : cat} {filtered.length > 0 && <span style={{ color: C.gray, fontSize: 12, fontWeight: 500 }}>({filtered.length})</span>}
+          {cat === "הכל" ? "כל המסעדות" : cat}
+          {filtered.length > 0 && <span style={{ color: C.gray, fontSize: 12, fontWeight: 500 }}> ({filtered.length})</span>}
         </div>
 
-        {filtered.length === 0 ? (
+        {loadingRests ? (
+          <div style={{ textAlign: "center", padding: 40, color: C.gray }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid " + C.lightGray, borderTopColor: C.red, animation: "spin .7s linear infinite", margin: "0 auto 12px" }} />
+            טוען מסעדות...
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px 0", color: C.gray }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
             <div style={{ fontSize: 15, fontWeight: 600 }}>לא נמצאו תוצאות</div>
@@ -130,16 +112,19 @@ export default function HomePage({ cart, add, rem, cartCount }) {
           </div>
         ) : (
           filtered.map(r => (
-            <div key={r.id} onClick={() => r.is_open && navigate(`/restaurant/${r.id}`, { state: r })}
-              style={{ background: "white", borderRadius: 18, marginBottom: 12, padding: "14px", cursor: r.is_open ? "pointer" : "default", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", opacity: r.is_open ? 1 : 0.55, position: "relative" }}>
-              {!r.is_open && (
+            <div key={r.id} onClick={() => r.active && navigate(`/restaurant/${r.id}`, { state: r })}
+              style={{ background: "white", borderRadius: 18, marginBottom: 12, padding: "14px", cursor: r.active ? "pointer" : "default", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", opacity: r.active ? 1 : 0.55, position: "relative" }}>
+              {!r.active && (
                 <div style={{ position: "absolute", top: 12, right: 14, background: C.dark, color: "white", fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>סגור</div>
               )}
               <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                <div style={{ width: 70, height: 70, borderRadius: 14, background: C.ultra, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, flexShrink: 0 }}>{r.image}</div>
+                {/* ✅ using logo_emoji (not image) */}
+                <div style={{ width: 70, height: 70, borderRadius: 14, background: r.cover_color || C.ultra, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, flexShrink: 0 }}>
+                  {r.logo_emoji || "🍽️"}
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 800, fontSize: 15, color: C.dark, marginBottom: 2 }}>{r.name}</div>
-                  <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>{r.cuisine}</div>
+                  <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>{r.category}</div>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                     <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: C.dark }}>
                       <IcoStar s={11} />{r.rating}
@@ -172,7 +157,7 @@ export default function HomePage({ cart, add, rem, cartCount }) {
       </div>
 
       <BottomNav cartCount={cartCount} />
-      <style>{`*{box-sizing:border-box}::-webkit-scrollbar{display:none}`}</style>
+      <style>{`*{box-sizing:border-box}::-webkit-scrollbar{display:none}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
