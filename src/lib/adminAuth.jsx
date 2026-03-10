@@ -1,32 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "./supabase";
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || "admin@yougo.app";
 
 export function AdminAuthGuard({ children, onBack }) {
   const [session,  setSession]  = useState(null);
-  const [loading,  setLoading]  = useState(true);
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [error,    setError]    = useState("");
   const [signing,  setSigning]  = useState(false);
 
-  useEffect(() => {
-    // ✅ تسجيل خروج إجباري عند كل دخول لصفحة الأدمين — أمان أعلى
-    supabase.auth.signOut().then(() => {
-      setSession(null);
-      setLoading(false);
-    });
-  }, []);
+  // ✅ لا نعمل signOut هنا — المستخدم العادي يبقى مسجّل
+  // الأدمين يسجل دخول بإيميل+باسوورد منفصل
 
   async function handleLogin(e) {
     e.preventDefault();
-    setSigning(true);
-    setError("");
+    setSigning(true); setError("");
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
     if (err || data.user?.email !== ADMIN_EMAIL) {
-      if (data?.user) await supabase.auth.signOut();
-      setError("بريد أو كلمة سر خاطئة، أو ليس حساب Admin");
+      setError("بريد أو كلمة سر خاطئة");
       setSigning(false);
       return;
     }
@@ -34,14 +26,7 @@ export function AdminAuthGuard({ children, onBack }) {
     setSigning(false);
   }
 
-  if (loading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #E2E8F0", borderTopColor: "#C8102E", animation: "spin .7s linear infinite" }} />
-      <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
-    </div>
-  );
-
-  if (!session || session.user?.email !== ADMIN_EMAIL) return (
+  if (!session) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,#0F172A,#1E293B)", fontFamily: "system-ui", direction: "rtl", padding: 16 }}>
       <div style={{ background: "#fff", borderRadius: 24, padding: "36px 32px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
@@ -50,26 +35,14 @@ export function AdminAuthGuard({ children, onBack }) {
             <path d="M12 42V20l16 16V20" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M34 30h16M42 24l8 6-8 6" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <div style={{ fontSize: 20, fontWeight: 900, color: "#0F172A", marginTop: 10 }}>لوحة الإدارة</div>
-          <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>Yougo Admin — محمي بـ Supabase Auth</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: "#0F172A", marginTop: 10 }}>לוחה הإدارة</div>
+          <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>Yougo Admin</div>
         </div>
         <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="admin@yougo.app"
-            required
-            style={{ border: "1.5px solid #E5E7EB", borderRadius: 10, padding: "11px 13px", fontSize: 13, outline: "none", direction: "ltr" }}
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-            style={{ border: "1.5px solid #E5E7EB", borderRadius: 10, padding: "11px 13px", fontSize: 13, outline: "none", direction: "ltr" }}
-          />
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@yougo.app" required
+            style={{ border: "1.5px solid #E5E7EB", borderRadius: 10, padding: "11px 13px", fontSize: 13, outline: "none", direction: "ltr" }} />
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required
+            style={{ border: "1.5px solid #E5E7EB", borderRadius: 10, padding: "11px 13px", fontSize: 13, outline: "none", direction: "ltr" }} />
           {error && (
             <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "10px", fontSize: 12, color: "#DC2626" }}>
               ⚠️ {error}
@@ -84,7 +57,7 @@ export function AdminAuthGuard({ children, onBack }) {
           ← رجوع
         </button>
       </div>
-      <style>{"*{box-sizing:border-box}@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+      <style>{"*{box-sizing:border-box}"}</style>
     </div>
   );
 
