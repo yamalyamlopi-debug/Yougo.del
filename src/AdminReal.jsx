@@ -242,11 +242,11 @@ function NavIcon({ path, size=18, color="#64748B" }) {
 ═══════════════════════════════════════════════════════════════════ */
 export default function AdminReal({ onBack }) {
   const [page, setPage]         = useState("overview");
-  const [orders, setOrders]     = useState(ORDERS);
-  const [rests, setRests]       = useState(RESTAURANTS);
-  const [users, setUsers]       = useState(USERS);
+  const [orders, setOrders]     = useState([]);
+  const [rests, setRests]       = useState([]);
+  const [users, setUsers]       = useState([]);
   const [toast, setToast]       = useState(null);
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading]   = useState(true);
 
   // Orders page
   const [oFilter, setOFilter]   = useState("الكل");
@@ -257,7 +257,7 @@ export default function AdminReal({ onBack }) {
   const [rSearch, setRSearch]   = useState("");
   const [showAddR, setShowAddR] = useState(false);
   const [editR, setEditR]       = useState(null);
-  const [newR, setNewR]         = useState({ name:"", cat:"", city:"", phone:"", hours:"" });
+  const [newR, setNewR]         = useState({ name:"", category:"", location:"", phone:"", hours:"" });
   const [savingR, setSavingR]   = useState(false);
 
   // Users page
@@ -279,9 +279,9 @@ export default function AdminReal({ onBack }) {
           supabase.from("restaurants").select("*").order("name"),
           supabase.from("users").select("*").order("created_at", { ascending:false }),
         ]);
-        if (o.data?.length) setOrders(o.data);
-        if (r.data?.length) setRests(r.data);
-        if (u.data?.length) setUsers(u.data);
+        setOrders(o.data || []);
+        setRests(r.data || []);
+        setUsers(u.data || []);
       } catch (_) {}
       setLoading(false);
     })();
@@ -289,7 +289,7 @@ export default function AdminReal({ onBack }) {
     const ch = supabase.channel("yougo-admin-v3")
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"orders" }, p => {
         setOrders(prev => [p.new, ...prev]);
-        notify(`🔔 طلب جديد — ${p.new.customer || p.new.customer_name}`, "info");
+        notify(`🔔 طلب جديد — ${p.new.customer_name}`, "info");
       })
       .on("postgres_changes", { event:"UPDATE", schema:"public", table:"orders" }, p => {
         setOrders(prev => prev.map(o => o.id === p.new.id ? p.new : o));
@@ -300,7 +300,7 @@ export default function AdminReal({ onBack }) {
 
   /* Computed */
   const today = new Date().toISOString().split("T")[0];
-  const todayOrders = orders.filter(o => (o.created || o.created_at || "").startsWith(today));
+  const todayOrders = orders.filter(o => o.created_at.startsWith(today));
   const todayRev = todayOrders.reduce((s, o) => s + (o.total || 0), 0);
   const completedOrders = orders.filter(o => o.status === "مكتمل");
   const totalRev = completedOrders.reduce((s, o) => s + (o.total || 0), 0);
@@ -341,8 +341,8 @@ export default function AdminReal({ onBack }) {
     setSavingR(true);
     const obj = { ...newR, id:"R0"+Date.now(), orders:0, revenue:0, rating:5.0, reviews:0, active:true, verified:false, img:"🍴" };
     setRests(p => [...p, obj]);
-    try { await supabase.from("restaurants").insert([{ name:newR.name, category:newR.cat, location:newR.city, phone:newR.phone, active:true }]); } catch (_) {}
-    setSavingR(false); setShowAddR(false); setNewR({ name:"", cat:"", city:"", phone:"", hours:"" });
+    try { await supabase.from("restaurants").insert([{ name:newR.name, category:newR.category, location:newR.location, phone:newR.phone, active:true }]); } catch (_) {}
+    setSavingR(false); setShowAddR(false); setNewR({ name:"", category:"", location:"", phone:"", hours:"" });
     notify("تم إضافة المطعم ✓");
   };
 
@@ -368,9 +368,9 @@ export default function AdminReal({ onBack }) {
   /* Filtered */
   const fOrders = orders
     .filter(o => oFilter === "الكل" || o.status === oFilter)
-    .filter(o => !oSearch || (o.customer||o.customer_name||"").includes(oSearch) || (o.restaurant||o.restaurant_name||"").includes(oSearch));
+    .filter(o => !oSearch || (o.customer_name||"").includes(oSearch) || (o.restaurant_name||"").includes(oSearch));
 
-  const fRests = rests.filter(r => !rSearch || r.name.includes(rSearch) || (r.cat||r.category||"").includes(rSearch) || (r.city||r.location||"").includes(rSearch));
+  const fRests = rests.filter(r => !rSearch || r.name.includes(rSearch) || (r.category||"").includes(rSearch) || (r.location||"").includes(rSearch));
   const fUsers = users.filter(u => !uSearch || (u.name||"").includes(uSearch) || (u.phone||"").includes(uSearch));
 
   const donutSegs = Object.entries(ST).map(([l,m]) => ({ c:m.c, val:orders.filter(o=>o.status===l).length })).filter(s=>s.val>0);
@@ -490,7 +490,7 @@ export default function AdminReal({ onBack }) {
 
 {/* ══════════════════════ OVERVIEW ══════════════════════════════ */}
 {page === "overview" && (() => {
-  const payStats = ["كاش","بطاقة","Apple Pay"].map(m => ({ m, n:orders.filter(o=>o.pay===m||o.payment_method===m).length }));
+  const payStats = ["كاش","بطاقة","Apple Pay"].map(m => ({ m, n:orders.filter(o=>o.payment_method===m||o.payment_method===m).length }));
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
 
@@ -599,11 +599,11 @@ export default function AdminReal({ onBack }) {
                   onMouseLeave={e => e.currentTarget.style.background=""}
                   onClick={() => { setODetail(o); setPage("orders"); }}>
                   <td style={{ padding:"11px 16px", fontSize:11, fontWeight:700, color:"#94A3B8", fontFamily:"monospace" }}>{o.id}</td>
-                  <td style={{ padding:"11px 16px", fontSize:13, fontWeight:600, color:"#0F172A" }}>{o.customer||o.customer_name}</td>
-                  <td style={{ padding:"11px 16px", fontSize:12, color:"#64748B" }}>{o.restaurant||o.restaurant_name}</td>
+                  <td style={{ padding:"11px 16px", fontSize:13, fontWeight:600, color:"#0F172A" }}>{o.customer_name}</td>
+                  <td style={{ padding:"11px 16px", fontSize:12, color:"#64748B" }}>{o.restaurant_name}</td>
                   <td style={{ padding:"11px 16px", fontSize:13, fontWeight:800, color:"#10B981" }}>₪{o.total}</td>
                   <td style={{ padding:"11px 16px" }}><Badge status={o.status}/></td>
-                  <td style={{ padding:"11px 16px", fontSize:11, color:"#94A3B8" }}>{ago(o.created||o.created_at)}</td>
+                  <td style={{ padding:"11px 16px", fontSize:11, color:"#94A3B8" }}>{ago(o.created_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -719,20 +719,20 @@ export default function AdminReal({ onBack }) {
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                         <div style={{ width:28, height:28, borderRadius:8, background:"#EFF6FF", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, flexShrink:0 }}>👤</div>
                         <div>
-                          <div style={{ fontSize:13, fontWeight:600, color:"#0F172A", whiteSpace:"nowrap" }}>{o.customer||o.customer_name}</div>
+                          <div style={{ fontSize:13, fontWeight:600, color:"#0F172A", whiteSpace:"nowrap" }}>{o.customer_name}</div>
                           <div style={{ fontSize:10, color:"#94A3B8" }}>{o.phone||""}</div>
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding:"12px 16px", fontSize:12, color:"#475569", whiteSpace:"nowrap" }}>{o.restaurant||o.restaurant_name}</td>
+                    <td style={{ padding:"12px 16px", fontSize:12, color:"#475569", whiteSpace:"nowrap" }}>{o.restaurant_name}</td>
                     <td style={{ padding:"12px 16px", fontSize:14, fontWeight:800, color:"#10B981", whiteSpace:"nowrap" }}>₪{o.total}</td>
                     <td style={{ padding:"12px 16px" }}>
-                      <span style={{ fontSize:11, fontWeight:600, color:PAY_COLORS[o.pay||o.payment_method]||"#64748B" }}>{o.pay||o.payment_method||"—"}</span>
+                      <span style={{ fontSize:11, fontWeight:600, color:(PAY_COLORS[o.payment_method]||"#64748B") }}>{o.payment_method||"—"}</span>
                     </td>
                     <td style={{ padding:"12px 16px", whiteSpace:"nowrap" }}>
                       <Badge status={o.status||"جديد"}/>
                     </td>
-                    <td style={{ padding:"12px 16px", fontSize:11, color:"#94A3B8", whiteSpace:"nowrap" }}>{ago(o.created||o.created_at)}</td>
+                    <td style={{ padding:"12px 16px", fontSize:11, color:"#94A3B8", whiteSpace:"nowrap" }}>{ago(o.created_at)}</td>
                   </tr>
                 );
               })}
@@ -753,24 +753,24 @@ export default function AdminReal({ onBack }) {
               <button onClick={() => setODetail(null)} style={{ background:"rgba(255,255,255,.15)", border:"none", color:"#fff", borderRadius:6, width:26, height:26, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:16 }}>×</button>
             </div>
             <div style={{ color:"#fff", fontSize:17, fontWeight:900 }}>{oDetail.id}</div>
-            <div style={{ color:"rgba(255,255,255,.7)", fontSize:12, marginTop:2 }}>{ago(oDetail.created||oDetail.created_at)}</div>
+            <div style={{ color:"rgba(255,255,255,.7)", fontSize:12, marginTop:2 }}>{ago(oDetail.created_at)}</div>
           </div>
 
           {/* Customer */}
           <div style={{ padding:"16px 20px", borderBottom:"1px solid #F1F5F9" }}>
             <div style={{ fontSize:10, color:"#94A3B8", fontWeight:700, marginBottom:8, textTransform:"uppercase", letterSpacing:0.8 }}>بيانات العميل</div>
-            <div style={{ fontSize:14, fontWeight:700, color:"#0F172A", marginBottom:3 }}>{oDetail.customer||oDetail.customer_name}</div>
-            <div style={{ fontSize:12, color:"#64748B", marginBottom:2 }}>{oDetail.phone||"—"}</div>
+            <div style={{ fontSize:14, fontWeight:700, color:"#0F172A", marginBottom:3 }}>{oDetail.customer_name}</div>
+            <div style={{ fontSize:12, color:"#64748B", marginBottom:2 }}>{oDetail.customer_phone||"—"}</div>
             <div style={{ fontSize:12, color:"#64748B", display:"flex", alignItems:"center", gap:4 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke="#94A3B8" strokeWidth="1.8"/><circle cx="12" cy="11" r="3" stroke="#94A3B8" strokeWidth="1.8"/></svg>
-              {oDetail.address||"—"}
+              {oDetail.customer_address||"—"}
             </div>
           </div>
 
           {/* Items */}
           <div style={{ padding:"16px 20px", borderBottom:"1px solid #F1F5F9" }}>
             <div style={{ fontSize:10, color:"#94A3B8", fontWeight:700, marginBottom:10, textTransform:"uppercase", letterSpacing:0.8 }}>المطعم والعناصر</div>
-            <div style={{ fontSize:13, fontWeight:700, color:"#2563EB", marginBottom:8 }}>{oDetail.restaurant||oDetail.restaurant_name}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:"#2563EB", marginBottom:8 }}>{oDetail.restaurant_name}</div>
             {(oDetail.items||[`${oDetail.items_count||1} عنصر`]).map((item, i) => (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom: i < (oDetail.items||[]).length-1 ? "1px dashed #F1F5F9" : "none" }}>
                 <div style={{ width:6, height:6, borderRadius:"50%", background:"#CBD5E1", flexShrink:0 }}/>
@@ -782,17 +782,17 @@ export default function AdminReal({ onBack }) {
           {/* Financials */}
           <div style={{ padding:"14px 20px", borderBottom:"1px solid #F1F5F9" }}>
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#64748B", marginBottom:5 }}>
-              <span>المجموع الفرعي</span><span>₪{(oDetail.total||0) - (oDetail.fee||10)}</span>
+              <span>المجموع الفرعي</span><span>₪{(oDetail.total||0) - (oDetail.delivery_fee||10)}</span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#64748B", marginBottom:8 }}>
-              <span>رسوم التوصيل</span><span>₪{oDetail.fee||10}</span>
+              <span>رسوم التوصيل</span><span>₪{oDetail.delivery_fee||10}</span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:15, fontWeight:800, color:"#0F172A", paddingTop:8, borderTop:"1.5px solid #E2E8F0" }}>
               <span>الإجمالي</span><span style={{ color:"#10B981" }}>₪{oDetail.total}</span>
             </div>
             <div style={{ marginTop:8, display:"flex", alignItems:"center", gap:6 }}>
               <span style={{ fontSize:11, color:"#64748B" }}>طريقة الدفع:</span>
-              <span style={{ fontSize:11, fontWeight:700, color:PAY_COLORS[oDetail.pay||oDetail.payment_method]||"#64748B" }}>{oDetail.pay||oDetail.payment_method||"—"}</span>
+              <span style={{ fontSize:11, fontWeight:700, color:PAY_COLORS[oDetail.payment_method]||"#64748B" }}>{oDetail.payment_method||"—"}</span>
             </div>
           </div>
 
@@ -899,7 +899,7 @@ export default function AdminReal({ onBack }) {
               {editR?.id === r.id ? (
                 <td colSpan={8} style={{ padding:"14px 16px" }}>
                   <div style={{ display:"flex", gap:9, alignItems:"center", flexWrap:"wrap" }}>
-                    {[["name","الاسم"],["cat","الفئة"],["city","المدينة"],["phone","الهاتف"],["hours","الساعات"]].map(([k,l]) => (
+                    {[["name","الاسم"],["category","الفئة"],["location","المدينة"],["phone","الهاتف"],["hours","الساعات"]].map(([k,l]) => (
                       <Input key={k} value={editR[k]||""} onChange={e=>setEditR(p=>({...p,[k]:e.target.value}))} placeholder={l} style={{ flex:"1 1 120px", boxSizing:"border-box" }}/>
                     ))}
                     <Btn onClick={saveRest} disabled={savingR} variant="success">{savingR?"…":"حفظ"}</Btn>
@@ -920,8 +920,8 @@ export default function AdminReal({ onBack }) {
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding:"13px 16px", fontSize:12, color:"#475569" }}>{r.cat||r.category||"—"}</td>
-                  <td style={{ padding:"13px 16px", fontSize:12, color:"#475569" }}>{r.city||r.location||"—"}</td>
+                  <td style={{ padding:"13px 16px", fontSize:12, color:"#475569" }}>{r.category||"—"}</td>
+                  <td style={{ padding:"13px 16px", fontSize:12, color:"#475569" }}>{r.location||"—"}</td>
                   <td style={{ padding:"13px 16px" }}>
                     <span style={{ fontSize:13, fontWeight:700, color:"#F59E0B" }}>★ {r.rating||"—"}</span>
                     <span style={{ fontSize:10, color:"#94A3B8", marginRight:3 }}>({r.reviews||0})</span>
@@ -961,7 +961,7 @@ export default function AdminReal({ onBack }) {
         { l:"إجمالي المستخدمين", v:users.length,                                   c:"#2563EB" },
         { l:"مستخدمون نشطون",   v:users.filter(u=>u.active!==false).length,         c:"#10B981" },
         { l:"محظورون",          v:users.filter(u=>u.active===false).length,          c:"#EF4444" },
-        { l:"إجمالي الطلبات",   v:users.reduce((s,u)=>s+(u.orders||0),0),           c:"#8B5CF6" },
+        { l:"إجمالي الطلبات",   v:users.reduce((s,u)=>s+(u.orders_count||0),0),           c:"#8B5CF6" },
       ].map((s,i) => (
         <Card key={i} style={{ padding:"16px 20px", borderTop:`3px solid ${s.c}` }}>
           <div style={{ fontSize:24, fontWeight:900, color:"#0F172A" }}>{s.v}</div>
@@ -1006,7 +1006,7 @@ export default function AdminReal({ onBack }) {
               <td style={{ padding:"13px 18px", fontSize:12, color:"#475569", fontFamily:"monospace" }}>{u.phone||"—"}</td>
               <td style={{ padding:"13px 18px", fontSize:12, color:"#475569" }}>{u.city||"—"}</td>
               <td style={{ padding:"13px 18px" }}>
-                <span style={{ fontSize:14, fontWeight:800, color: (u.orders||0)>15?"#10B981":(u.orders||0)>5?"#2563EB":"#64748B" }}>{u.orders||0}</span>
+                <span style={{ fontSize:14, fontWeight:800, color: (u.orders_count||0)>15?"#10B981":(u.orders_count||0)>5?"#2563EB":"#64748B" }}>{u.orders_count||0}</span>
               </td>
               <td style={{ padding:"13px 18px", fontSize:11, color:"#94A3B8", whiteSpace:"nowrap" }}>{u.lastOrder ? ago(u.lastOrder) : "—"}</td>
               <td style={{ padding:"13px 18px", fontSize:11, color:"#94A3B8", whiteSpace:"nowrap" }}>{u.joined||"—"}</td>
@@ -1130,7 +1130,7 @@ export default function AdminReal({ onBack }) {
               <div key={u.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"7px 0", borderBottom: i<2?"1px solid #F8FAFC":"none" }}>
                 <div style={{ width:26, height:26, borderRadius:8, background:["#FEF3C7","#EFF6FF","#F0FDF4"][i], display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, flexShrink:0 }}>{["🥇","🥈","🥉"][i]}</div>
                 <span style={{ flex:1, fontSize:12, fontWeight:600, color:"#0F172A" }}>{u.name}</span>
-                <span style={{ fontSize:12, fontWeight:800, color:"#10B981" }}>₪{(u.spent||0).toLocaleString()}</span>
+                <span style={{ fontSize:12, fontWeight:800, color:"#10B981" }}>₪{(u.total_spent||0).toLocaleString()}</span>
               </div>
             ))}
           </div>
