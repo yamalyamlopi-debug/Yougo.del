@@ -39,7 +39,7 @@ export default function RestaurantPage({ cart, add, rem, cartCount, cartTotal })
       <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "44px 20px 65px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", bottom: -30, left: 0, right: 0, height: 60, background: C.bg, borderRadius: "50% 50% 0 0" }} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <button onClick={() => navigate("/")}
+          <button onClick={() => navigate(-1)}
             style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <IcoBack s={18} c="white" />
           </button>
