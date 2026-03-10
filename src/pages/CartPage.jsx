@@ -1,9 +1,10 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  CartPage.jsx — Cart items, promo code, checkout
-//  ✅ Fixed: order status & payment_method enums
-//     match Supabase schema (Arabic values)
+//  CartPage.jsx
+//  ✅ FIX 1: user_id saved with every order
+//  ✅ FIX 2: restaurant_name saved with order
+//  ✅ FIX 3: Order tracking screen after checkout
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { C, IcoBack, IcoPlus, IcoMinus, IcoClose, IcoCheck, IcoShield, IcoPin } from "../components/Icons";
 import BottomNav from "../components/BottomNav";
@@ -11,9 +12,15 @@ import { supabase } from "../lib/supabase";
 
 const FREE_DELIVERY_MIN = 150;
 const PROMO_CODES = { "NAAT10": 0.10 };
-
-// ✅ Map UI values → DB enum values
 const PAYMENT_MAP = { cash: "كاش", card: "بطاقة", bit: "Apple Pay" };
+
+// Tracking steps
+const STEPS = [
+  { status: "جديد",        label: "ההזמנה התקבלה",  icon: "✅", delay: 0    },
+  { status: "قيد التحضير", label: "בהכנה",            icon: "👨‍🍳", delay: 4000 },
+  { status: "في الطريق",   label: "בדרך אליך",        icon: "🛵", delay: 12000 },
+  { status: "مكتمل",       label: "הגיע!",             icon: "🎉", delay: 25000 },
+];
 
 function LoadSpinner({ size = 18, color = "white" }) {
   return (
@@ -24,21 +31,106 @@ function LoadSpinner({ size = 18, color = "white" }) {
   );
 }
 
-export default function CartPage({ cart, add, rem, setCart, cartCount }) {
+// ── Tracking Screen ────────────────────────────────
+function TrackingScreen({ orderId, total, navigate }) {
+  const [stepIdx, setStepIdx] = useState(0);
+
+  useEffect(() => {
+    const timers = STEPS.slice(1).map((s, i) =>
+      setTimeout(() => setStepIdx(i + 1), s.delay)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const current = STEPS[stepIdx];
+
+  return (
+    <div style={{ fontFamily: "Arial,sans-serif", background: "linear-gradient(160deg,#C8102E,#7B0D1E)", minHeight: "100vh", maxWidth: 430, margin: "0 auto", direction: "rtl", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 60, paddingBottom: 40 }}>
+
+      {/* Big animated icon */}
+      <div key={stepIdx} style={{ width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56, marginBottom: 20, animation: "popIn .5s cubic-bezier(.34,1.56,.64,1)" }}>
+        {current.icon}
+      </div>
+
+      <div style={{ color: "white", fontSize: 24, fontWeight: 900, marginBottom: 6 }}>{current.label}</div>
+      {orderId && <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginBottom: 32 }}>הזמנה #{String(orderId).slice(-6).toUpperCase()}</div>}
+
+      {/* Progress steps */}
+      <div style={{ display: "flex", gap: 0, alignItems: "center", marginBottom: 36, width: "80%" }}>
+        {STEPS.map((s, i) => {
+          const done = i <= stepIdx;
+          const active = i === stepIdx;
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", flex: i < STEPS.length - 1 ? 1 : "none" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <div style={{
+                  width: active ? 42 : 32, height: active ? 42 : 32,
+                  borderRadius: "50%",
+                  background: done ? "white" : "rgba(255,255,255,0.2)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: active ? 20 : 14,
+                  transition: "all 0.4s",
+                  boxShadow: active ? "0 0 0 6px rgba(255,255,255,0.2)" : "none",
+                }}>
+                  {done ? <span>{s.icon}</span> : <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,0.4)" }} />}
+                </div>
+                <div style={{ color: done ? "white" : "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: active ? 800 : 500, textAlign: "center", width: 60 }}>{s.label}</div>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div style={{ flex: 1, height: 2, background: i < stepIdx ? "white" : "rgba(255,255,255,0.2)", transition: "background 0.6s", margin: "0 4px", marginBottom: 20 }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ETA */}
+      {stepIdx < 3 && (
+        <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 16, padding: "14px 28px", marginBottom: 32, textAlign: "center" }}>
+          <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 12 }}>זמן משלוח משוער</div>
+          <div style={{ color: "white", fontSize: 22, fontWeight: 900, marginTop: 4 }}>~30 דקות</div>
+        </div>
+      )}
+
+      {/* Total */}
+      <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, marginBottom: 28 }}>
+        סה״כ שולם: <span style={{ color: "white", fontWeight: 900 }}>₪{total}</span>
+      </div>
+
+      {/* Buttons */}
+      <button onClick={() => navigate("/orders")}
+        style={{ background: "white", color: C.red, border: "none", borderRadius: 16, padding: "14px 40px", fontSize: 15, fontWeight: 900, cursor: "pointer", marginBottom: 12 }}>
+        מעקב הזמנות
+      </button>
+      <button onClick={() => navigate("/")}
+        style={{ background: "transparent", color: "rgba(255,255,255,0.7)", border: "none", fontSize: 14, cursor: "pointer" }}>
+        חזור לדף הבית
+      </button>
+
+      <style>{`@keyframes popIn{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}*{box-sizing:border-box}`}</style>
+    </div>
+  );
+}
+
+// ── Main CartPage ──────────────────────────────────
+export default function CartPage({ cart, add, rem, setCart, cartCount, user }) {
   const navigate = useNavigate();
   const [promoInput, setPromoInput] = useState("");
-  const [promo, setPromo] = useState(null);
+  const [promo, setPromo]           = useState(null);
   const [promoError, setPromoError] = useState("");
-  const [address, setAddress] = useState("");
-  const [payment, setPayment] = useState("cash");
-  const [loading, setLoading] = useState(false);
-  const [ordered, setOrdered] = useState(false);
-  const [orderId, setOrderId] = useState(null);
+  const [address, setAddress]       = useState("");
+  const [payment, setPayment]       = useState("cash");
+  const [loading, setLoading]       = useState(false);
+  const [ordered, setOrdered]       = useState(false);
+  const [orderId, setOrderId]       = useState(null);
 
-  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const subtotal    = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const deliveryFee = subtotal >= FREE_DELIVERY_MIN ? 0 : 12;
-  const discount = promo ? Math.floor(subtotal * PROMO_CODES[promo]) : 0;
-  const total = subtotal + deliveryFee - discount;
+  const discount    = promo ? Math.floor(subtotal * PROMO_CODES[promo]) : 0;
+  const total       = subtotal + deliveryFee - discount;
+
+  // Get restaurant name from cart items
+  const restaurantName = cart[0]?.rname || null;
 
   function applyPromo() {
     const code = promoInput.trim().toUpperCase();
@@ -51,54 +143,39 @@ export default function CartPage({ cart, add, rem, setCart, cartCount }) {
     setLoading(true);
     try {
       const { data, error } = await supabase.from("orders").insert({
+        // ✅ FIX: user_id so each user sees only their orders
+        user_id: user?.id || null,
+        // ✅ FIX: restaurant_name for display in OrdersPage
+        restaurant_name: restaurantName,
         items: cart,
         subtotal,
         delivery_fee: deliveryFee,
         total,
         address,
-        payment_method: PAYMENT_MAP[payment],  // ✅ Arabic enum value
-        status: "جديد",                         // ✅ Arabic enum value (was: "pending")
+        payment_method: PAYMENT_MAP[payment],
+        status: "جديد",
         notes: promo ? `קוד פרומו: ${promo}` : null,
       }).select().single();
+
       if (!error && data) setOrderId(data.id);
       else setOrderId("DEMO-" + Math.floor(Math.random() * 9000 + 1000));
     } catch (e) {
       setOrderId("DEMO-" + Math.floor(Math.random() * 9000 + 1000));
     }
     setLoading(false);
-    setOrdered(true);
     setCart([]);
+    setOrdered(true);
   }
 
-  // Success screen
-  if (ordered) return (
-    <div style={{ fontFamily: "Arial,sans-serif", background: "linear-gradient(160deg,#C8102E,#7B0D1E)", minHeight: "100vh", maxWidth: 430, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", direction: "rtl" }}>
-      <div style={{ animation: "pop .6s cubic-bezier(.34,1.56,.64,1)" }}>
-        <div style={{ width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-          <IcoCheck s={50} c="white" />
-        </div>
-      </div>
-      <div style={{ color: "white", fontSize: 26, fontWeight: 900 }}>ההזמנה התקבלה!</div>
-      <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, marginTop: 6 }}>בדרך אליך 🛵</div>
-      {orderId && <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 8 }}>מספר הזמנה: {orderId}</div>}
-      <button onClick={() => navigate("/orders")}
-        style={{ marginTop: 32, background: "white", color: C.red, border: "none", borderRadius: 16, padding: "14px 36px", fontSize: 15, fontWeight: 900, cursor: "pointer" }}>
-        מעקב הזמנה
-      </button>
-      <button onClick={() => navigate("/")}
-        style={{ marginTop: 12, background: "transparent", color: "rgba(255,255,255,0.7)", border: "none", fontSize: 14, cursor: "pointer" }}>
-        חזור לעמוד הראשי
-      </button>
-      <style>{`@keyframes pop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}*{box-sizing:border-box}`}</style>
-    </div>
-  );
+  // ✅ FIX: Show tracking screen instead of simple success
+  if (ordered) return <TrackingScreen orderId={orderId} total={total} navigate={navigate} />;
 
   // Empty cart
   if (cart.length === 0) return (
     <div style={{ fontFamily: "Arial,sans-serif", background: C.bg, minHeight: "100vh", maxWidth: 430, margin: "0 auto", direction: "rtl", paddingBottom: 80 }}>
       <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "44px 20px 60px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", bottom: -30, left: 0, right: 0, height: 60, background: C.bg, borderRadius: "50% 50% 0 0" }} />
-        <button onClick={() => navigate("/")} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+        <button onClick={() => navigate(-1)} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <IcoBack s={18} c="white" />
         </button>
         <div style={{ color: "white", fontSize: 24, fontWeight: 900, marginTop: 12 }}>העגלה שלי</div>
@@ -122,7 +199,8 @@ export default function CartPage({ cart, add, rem, setCart, cartCount }) {
 
       <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "44px 20px 60px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", bottom: -30, left: 0, right: 0, height: 60, background: C.bg, borderRadius: "50% 50% 0 0" }} />
-        <button onClick={() => navigate("/")} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+        {/* ✅ FIX: navigate(-1) instead of navigate("/") */}
+        <button onClick={() => navigate(-1)} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <IcoBack s={18} c="white" />
         </button>
         <div style={{ color: "white", fontSize: 24, fontWeight: 900, marginTop: 12 }}>העגלה שלי</div>
@@ -204,8 +282,8 @@ export default function CartPage({ cart, add, rem, setCart, cartCount }) {
         <div style={{ background: "white", borderRadius: 16, padding: "16px", marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, marginBottom: 10 }}>סיכום הזמנה</div>
           {[
-            { l: "סכום ביניים", v: `₪${subtotal}` },
-            { l: "משלוח", v: deliveryFee === 0 ? "חינם 🎉" : `₪${deliveryFee}` },
+            { l: "סכום ביניים",   v: `₪${subtotal}` },
+            { l: "משלוח",         v: deliveryFee === 0 ? "חינם 🎉" : `₪${deliveryFee}` },
             ...(promo ? [{ l: `הנחה (${promo})`, v: `-₪${discount}`, c: C.green }] : []),
           ].map((row, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
@@ -232,7 +310,6 @@ export default function CartPage({ cart, add, rem, setCart, cartCount }) {
           style={{ width: "100%", background: loading ? "rgba(200,16,46,0.5)" : C.red, color: "white", border: "none", borderRadius: 16, padding: "16px", fontSize: 16, fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 6px 20px rgba(200,16,46,0.35)", marginBottom: 6 }}>
           {loading ? <><LoadSpinner />מעבד הזמנה...</> : <>הזמן עכשיו — ₪{total}</>}
         </button>
-
       </div>
 
       <BottomNav cartCount={cartCount} />
