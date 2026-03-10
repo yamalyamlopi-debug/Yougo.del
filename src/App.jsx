@@ -21,25 +21,23 @@ import AdminReal      from "./AdminReal";
 
 export default function App() {
   const { cart, setCart, addToCart, removeFromCart, cartCount, cartTotal } = useCart();
-  const [user, setUser]   = useState(null);
+  const [user, setUser]     = useState(null);
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // Check existing session on load
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const u = session.user;
         const meta = u.user_metadata || {};
         if (meta.firstName) {
-          setUser({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, gender: meta.gender, age: meta.age });
+          setUser({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, phone: meta.phone || "", gender: meta.gender, age: meta.age });
           setAuthed(true);
         }
       }
       setChecking(false);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) { setAuthed(false); setUser(null); setCart([]); }
     });
@@ -51,6 +49,11 @@ export default function App() {
     setAuthed(false);
     setUser(null);
     setCart([]);
+  }
+
+  // ✅ update user state after profile edit
+  function handleUserUpdate(updates) {
+    setUser(prev => ({ ...prev, ...updates }));
   }
 
   if (checking) return (
@@ -71,9 +74,11 @@ export default function App() {
     <Routes>
       <Route path="/"               element={<HomePage cart={cart} add={addToCart} rem={removeFromCart} cartCount={cartCount}/>}/>
       <Route path="/restaurant/:id" element={<RestaurantPage cart={cart} add={addToCart} rem={removeFromCart} cartCount={cartCount} cartTotal={cartTotal} setCart={setCart}/>}/>
-      <Route path="/cart"           element={<CartPage cart={cart} add={addToCart} rem={removeFromCart} setCart={setCart} cartCount={cartCount}/>}/>
-      <Route path="/orders"         element={<OrdersPage cartCount={cartCount}/>}/>
-      <Route path="/profile"        element={<ProfilePage user={user} cartCount={cartCount} onLogout={handleLogout}/>}/>
+      {/* ✅ FIX: user passed → CartPage saves user_id with order */}
+      <Route path="/cart"           element={<CartPage cart={cart} add={addToCart} rem={removeFromCart} setCart={setCart} cartCount={cartCount} user={user}/>}/>
+      {/* ✅ FIX: user passed → OrdersPage fetches only THIS user's orders */}
+      <Route path="/orders"         element={<OrdersPage cartCount={cartCount} user={user}/>}/>
+      <Route path="/profile"        element={<ProfilePage user={user} cartCount={cartCount} onLogout={handleLogout} onUserUpdate={handleUserUpdate}/>}/>
       <Route path="/market"         element={<MarketPage cartCount={cartCount}/>}/>
       <Route path="/privacy"        element={<PrivacyPage/>}/>
       <Route path="/terms"          element={<TermsPage/>}/>
