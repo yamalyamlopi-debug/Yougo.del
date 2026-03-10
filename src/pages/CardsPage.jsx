@@ -3,6 +3,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import GuestBanner from "../components/GuestBanner";
 import { C, IcoBack, IcoClose, IcoCheck, IcoShield } from "../components/Icons";
 
 const CARD_GRADIENTS = [
@@ -36,8 +37,9 @@ function CardFront({ card, idx }) {
   );
 }
 
-export default function CardsPage() {
+export default function CardsPage({ guest, onLogin }) {
   const navigate = useNavigate();
+  if (guest) return <GuestBanner onLogin={onLogin} message="כדי לנהל אמצעי תשלום, יש להתחבר" />;
   const [cards, setCards] = useState([
     { id: 1, brand: "visa", bank: "Bank Leumi", last4: "4521", name: "AHMAD NASSER", expiry: "09/27", isDefault: true },
     { id: 2, brand: "master", bank: "Mizrahi Tefahot", last4: "8834", name: "AHMAD NASSER", expiry: "03/26", isDefault: false },
