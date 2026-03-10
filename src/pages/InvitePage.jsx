@@ -4,8 +4,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { C, IcoBack, IcoCheck } from "../components/Icons";
+import GuestBanner from "../components/GuestBanner";
 
-export default function InvitePage({ user }) {
+export default function InvitePage({ user, guest, onLogin }) {
+  if (guest) return <GuestBanner onLogin={onLogin} message="כדי להזמין חברים ולקבל הטבות, יש להתחבר" />;
   const navigate = useNavigate();
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "חבר";
   const refCode = "YOUGO-" + firstName.toUpperCase().replace(/[^A-Z]/g, "X").slice(0, 4) + "30";
