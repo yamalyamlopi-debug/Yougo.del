@@ -3,7 +3,7 @@
 //  Protected by AdminAuthGuard — see src/lib/adminAuth.jsx
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "./src/lib/supabase";
+import { supabase } from "./lib/supabase";
 
 
 /* ═══════════════════════════════════════════════════════════════════
