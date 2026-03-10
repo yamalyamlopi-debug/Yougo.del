@@ -9,7 +9,7 @@ import OrdersPage     from "./pages/OrdersPage";
 import ProfilePage    from "./pages/ProfilePage";
 import AuthPage       from "./pages/AuthPage";
 import PrivacyPage    from "./pages/PrivacyPage";
-import TermsPage      from "./pages/termsPage";
+import TermsPage      from "./pages/TermsPage";
 import CardsPage      from "./pages/CardsPage";
 import InvitePage     from "./pages/InvitePage";
 import SupportPage    from "./pages/SupportPage";
