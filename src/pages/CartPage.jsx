@@ -1,10 +1,8 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  CartPage.jsx
-//  ✅ FIX 1: user_id saved with every order
-//  ✅ FIX 2: restaurant_name saved with order
-//  ✅ FIX 3: Order tracking screen after checkout
+//  CartPage.jsx — ✅ guest login wall on checkout
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState, useEffect } from "react";
+import GuestBanner from "../components/GuestBanner";
 import { useNavigate } from "react-router-dom";
 import { C, IcoBack, IcoPlus, IcoMinus, IcoClose, IcoCheck, IcoShield, IcoPin } from "../components/Icons";
 import BottomNav from "../components/BottomNav";
@@ -113,7 +111,7 @@ function TrackingScreen({ orderId, total, navigate }) {
 }
 
 // ── Main CartPage ──────────────────────────────────
-export default function CartPage({ cart, add, rem, setCart, cartCount, user }) {
+export default function CartPage({ cart, add, rem, setCart, cartCount, user, guest, onLogin }) {
   const navigate = useNavigate();
   const [promoInput, setPromoInput] = useState("");
   const [promo, setPromo]           = useState(null);
@@ -123,6 +121,7 @@ export default function CartPage({ cart, add, rem, setCart, cartCount, user }) {
   const [loading, setLoading]       = useState(false);
   const [ordered, setOrdered]       = useState(false);
   const [orderId, setOrderId]       = useState(null);
+  const [showLoginBanner, setShowLoginBanner] = useState(false);
 
   const subtotal    = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const deliveryFee = subtotal >= FREE_DELIVERY_MIN ? 0 : 12;
@@ -139,6 +138,7 @@ export default function CartPage({ cart, add, rem, setCart, cartCount, user }) {
   }
 
   async function placeOrder() {
+    if (guest && !user?.id) { setShowLoginBanner(true); return; }
     if (!address.trim()) { alert("יש להזין כתובת למשלוח"); return; }
     setLoading(true);
     try {
@@ -312,6 +312,13 @@ export default function CartPage({ cart, add, rem, setCart, cartCount, user }) {
         </button>
       </div>
 
+      {/* ✅ Login wall for guests trying to checkout */}
+      {showLoginBanner && (
+        <GuestBanner
+          onLogin={() => { setShowLoginBanner(false); onLogin && onLogin(); }}
+          message="כדי לסיים את ההזמנה, יש להתחבר"
+        />
+      )}
       <BottomNav cartCount={cartCount} />
       <style>{`*{box-sizing:border-box}`}</style>
     </div>
