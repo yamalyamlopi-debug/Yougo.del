@@ -267,6 +267,16 @@ export default function AdminReal({ onBack }) {
   const [cfg, setCfg]           = useState({ deliveryFee:"10", minOrder:"40", freeAt:"150", commission:"15", name:"Yougo", phone:"972-50-123-4567" });
   const [cfgSaved, setCfgSaved] = useState(false);
 
+
+  /* ── Mobile detection ── */
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+
   const notify = (msg, type="success") => setToast({ msg, type });
 
   /* Supabase + realtime */
@@ -375,13 +385,20 @@ export default function AdminReal({ onBack }) {
 
   const donutSegs = Object.entries(ST).map(([l,m]) => ({ c:m.c, val:orders.filter(o=>o.status===l).length })).filter(s=>s.val>0);
 
-  /* ── Styles ── */
+  /* ── Styles (responsive) ── */
   const S = {
     page: { background:"#F8FAFC", minHeight:"100vh", fontFamily:"'Cairo', system-ui, -apple-system, sans-serif", direction:"rtl" },
-    sidebar: { width:230, background:"#fff", borderLeft:"1px solid #E2E8F0", display:"flex", flexDirection:"column", height:"100vh", position:"sticky", top:0, flexShrink:0, boxShadow:"2px 0 8px rgba(0,0,0,.04)" },
+    sidebar: isMobile
+      ? { display:"none" }
+      : { width:230, background:"#fff", borderLeft:"1px solid #E2E8F0", display:"flex", flexDirection:"column", height:"100vh", position:"sticky", top:0, flexShrink:0, boxShadow:"2px 0 8px rgba(0,0,0,.04)" },
     main: { flex:1, display:"flex", flexDirection:"column", minWidth:0, overflow:"hidden" },
-    topbar: { background:"#fff", borderBottom:"1px solid #E2E8F0", padding:"0 28px", height:62, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 },
-    content: { flex:1, overflowY:"auto", padding:"26px 28px 48px" },
+    topbar: {
+      background:"#fff", borderBottom:"1px solid #E2E8F0",
+      padding: isMobile ? "0 14px" : "0 28px",
+      height: isMobile ? 56 : 62,
+      display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0
+    },
+    content: { flex:1, overflowY:"auto", padding: isMobile ? "14px 14px 80px" : "26px 28px 48px" },
   };
 
   return (
@@ -463,10 +480,17 @@ export default function AdminReal({ onBack }) {
 
           {/* Top bar */}
           <header style={S.topbar}>
-            <div>
-              <div style={{ fontSize:17, fontWeight:800, color:"#0F172A" }}>{PAGES.find(p=>p.id===page)?.label}</div>
-              <div style={{ fontSize:11, color:"#94A3B8", marginTop:1 }}>
-                {new Date().toLocaleDateString("ar-IL", { weekday:"long", year:"numeric", month:"long", day:"numeric" })}
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              {isMobile && (
+                <button onClick={() => setMobileMenuOpen(p => !p)} style={{ background:"#F1F5F9", border:"none", borderRadius:9, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="#334155" strokeWidth="2" strokeLinecap="round"/></svg>
+                </button>
+              )}
+              <div>
+                <div style={{ fontSize: isMobile ? 15 : 17, fontWeight:800, color:"#0F172A" }}>{PAGES.find(p=>p.id===page)?.label}</div>
+                {!isMobile && <div style={{ fontSize:11, color:"#94A3B8", marginTop:1 }}>
+                  {new Date().toLocaleDateString("ar-IL", { weekday:"long", year:"numeric", month:"long", day:"numeric" })}
+                </div>}
               </div>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -1211,6 +1235,72 @@ export default function AdminReal({ onBack }) {
           </div>{/* end content */}
         </div>{/* end main */}
 
+
+        {/* ═══ MOBILE BOTTOM NAV ═══════════════════════════════════════════ */}
+        {isMobile && (
+          <>
+            {/* Slide-over menu */}
+            {mobileMenuOpen && (
+              <div style={{ position:"fixed", inset:0, zIndex:200 }} onClick={() => setMobileMenuOpen(false)}>
+                <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,.4)" }}/>
+                <div style={{ position:"absolute", right:0, top:0, bottom:0, width:260, background:"#fff", display:"flex", flexDirection:"column", boxShadow:"-4px 0 20px rgba(0,0,0,.15)", animation:"slideIn .25s ease" }} onClick={e => e.stopPropagation()}>
+                  <div style={{ padding:"50px 18px 16px", borderBottom:"1px solid #F1F5F9" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <div style={{ width:36, height:36, borderRadius:10, background:"linear-gradient(135deg,#2563EB,#1D4ED8)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <svg width="20" height="20" viewBox="0 0 60 60" fill="none"><path d="M10 44V16l16 16V16" stroke="white" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M32 28h18M41 21l9 7-9 7" stroke="white" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </div>
+                      <div><div style={{ fontWeight:900, fontSize:16, color:"#0F172A" }}>YOUGO</div><div style={{ fontSize:9, color:"#94A3B8", fontWeight:600 }}>ADMIN PORTAL</div></div>
+                    </div>
+                  </div>
+                  <nav style={{ flex:1, padding:"10px 10px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
+                    {PAGES.map(p => {
+                      const active = page === p.id;
+                      const badge = p.id === "orders" ? newCount : 0;
+                      return (
+                        <button key={p.id} onClick={() => { setPage(p.id); setMobileMenuOpen(false); }} style={{
+                          display:"flex", alignItems:"center", gap:10, padding:"11px 14px", borderRadius:9,
+                          border:"none", cursor:"pointer", fontFamily:"'Cairo',system-ui,sans-serif",
+                          background: active ? "#EFF6FF" : "transparent",
+                          color: active ? "#2563EB" : "#64748B",
+                          fontWeight: active ? 700 : 500, fontSize:14,
+                          borderRight: active ? "3px solid #2563EB" : "3px solid transparent",
+                          textAlign:"right", width:"100%",
+                        }}>
+                          <NavIcon path={p.icon} size={18} color={active?"#2563EB":"#94A3B8"}/>
+                          <span style={{ flex:1 }}>{p.label}</span>
+                          {badge > 0 && <span style={{ background:"#EF4444", color:"#fff", fontSize:9, fontWeight:900, borderRadius:10, padding:"1px 6px" }}>{badge}</span>}
+                        </button>
+                      );
+                    })}
+                  </nav>
+                  <div style={{ padding:"14px", borderTop:"1px solid #F1F5F9" }}>
+                    <button onClick={onBack} style={{ width:"100%", background:"#F1F5F9", border:"none", borderRadius:9, padding:"11px", color:"#475569", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"'Cairo',system-ui,sans-serif" }}>
+                      ← رجوع للتطبيق
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Bottom nav */}
+            <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"#fff", borderTop:"1px solid #E2E8F0", display:"flex", zIndex:100, paddingBottom:"env(safe-area-inset-bottom)", maxWidth:"100vw" }}>
+              {PAGES.slice(0,5).map(p => {
+                const active = page === p.id;
+                const badge = p.id === "orders" ? newCount : 0;
+                return (
+                  <button key={p.id} onClick={() => setPage(p.id)} style={{
+                    flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                    padding:"8px 4px 6px", border:"none", background:"none", cursor:"pointer", position:"relative",
+                  }}>
+                    {badge > 0 && <div style={{ position:"absolute", top:5, right:"50%", transform:"translateX(8px)", background:"#EF4444", color:"#fff", fontSize:8, fontWeight:900, minWidth:14, height:14, borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 2px" }}>{badge}</div>}
+                    <NavIcon path={p.icon} size={20} color={active?"#2563EB":"#9CA3AF"}/>
+                    <span style={{ fontSize:9, fontWeight: active ? 700 : 400, color: active ? "#2563EB" : "#9CA3AF" }}>{p.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
         {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)}/>}
 
         <style>{`
@@ -1224,6 +1314,7 @@ export default function AdminReal({ onBack }) {
           @keyframes spin { to { transform: rotate(360deg); } }
           @keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
           @keyframes toastSlide { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes slideIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
           @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         `}</style>
       </div>
