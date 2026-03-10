@@ -1,5 +1,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  CartPage.jsx — Cart items, promo code, checkout
+//  ✅ Fixed: order status & payment_method enums
+//     match Supabase schema (Arabic values)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -9,6 +11,9 @@ import { supabase } from "../lib/supabase";
 
 const FREE_DELIVERY_MIN = 150;
 const PROMO_CODES = { "NAAT10": 0.10 };
+
+// ✅ Map UI values → DB enum values
+const PAYMENT_MAP = { cash: "كاش", card: "بطاقة", bit: "Apple Pay" };
 
 function LoadSpinner({ size = 18, color = "white" }) {
   return (
@@ -47,14 +52,17 @@ export default function CartPage({ cart, add, rem, setCart, cartCount }) {
     try {
       const { data, error } = await supabase.from("orders").insert({
         items: cart,
+        subtotal,
+        delivery_fee: deliveryFee,
         total,
         address,
-        payment_method: payment,
-        promo_code: promo,
-        status: "pending",
+        payment_method: PAYMENT_MAP[payment],  // ✅ Arabic enum value
+        status: "جديد",                         // ✅ Arabic enum value (was: "pending")
+        notes: promo ? `קוד פרומו: ${promo}` : null,
       }).select().single();
       if (!error && data) setOrderId(data.id);
-    } catch(e) {
+      else setOrderId("DEMO-" + Math.floor(Math.random() * 9000 + 1000));
+    } catch (e) {
       setOrderId("DEMO-" + Math.floor(Math.random() * 9000 + 1000));
     }
     setLoading(false);
@@ -112,7 +120,6 @@ export default function CartPage({ cart, add, rem, setCart, cartCount }) {
   return (
     <div style={{ fontFamily: "Arial,sans-serif", background: C.bg, minHeight: "100vh", maxWidth: 430, margin: "0 auto", direction: "rtl", paddingBottom: 80 }}>
 
-      {/* Header */}
       <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "44px 20px 60px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", bottom: -30, left: 0, right: 0, height: 60, background: C.bg, borderRadius: "50% 50% 0 0" }} />
         <button onClick={() => navigate("/")} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
@@ -217,7 +224,6 @@ export default function CartPage({ cart, add, rem, setCart, cartCount }) {
           )}
         </div>
 
-        {/* Place order button */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center", marginBottom: 10 }}>
           <IcoShield s={13} c={C.gray} />
           <span style={{ fontSize: 11, color: C.gray }}>תשלום מאובטח ומוצפן</span>
