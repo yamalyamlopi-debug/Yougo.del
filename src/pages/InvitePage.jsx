@@ -39,7 +39,7 @@ export default function InvitePage({ user }) {
       <div style={{ background: "linear-gradient(160deg,#10B981,#059669)", padding: "44px 20px 70px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", bottom: -30, left: 0, right: 0, height: 60, background: C.bg, borderRadius: "50% 50% 0 0" }} />
         <div style={{ position: "absolute", top: -20, right: -20, fontSize: 120, opacity: 0.08 }}>🎁</div>
-        <button onClick={() => navigate(-1)}
+        <button onClick={() => navigate("/profile")}
           style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginBottom: 20 }}>
           <IcoBack s={18} c="white" />
         </button>
