@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useCart } from "./hooks/useCart";        // ✅ fixed path
-import { AdminAuthGuard } from "./lib/adminAuth"; // ✅ fixed path
+import { useCart } from "./hooks/useCart";
+import { AdminAuthGuard } from "./lib/adminAuth";
+import { useState, useEffect } from "react";
+import { supabase } from "./lib/supabase";
 
 import HomePage       from "./pages/HomePage";
 import RestaurantPage from "./pages/RestaurantPage";
@@ -17,17 +19,51 @@ import MarketPage     from "./pages/MarketPage";
 import BusinessPortal from "./BusinessPortal";
 import AdminReal      from "./AdminReal";
 
-import { useState } from "react";
-
 export default function App() {
   const { cart, setCart, addToCart, removeFromCart, cartCount, cartTotal } = useCart();
-  const [user, setUser]     = useState(null);
+  const [user, setUser]   = useState(null);
   const [authed, setAuthed] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // Check existing session on load
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const u = session.user;
+        const meta = u.user_metadata || {};
+        if (meta.firstName) {
+          setUser({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, gender: meta.gender, age: meta.age });
+          setAuthed(true);
+        }
+      }
+      setChecking(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) { setAuthed(false); setUser(null); setCart([]); }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setAuthed(false);
+    setUser(null);
+    setCart([]);
+  }
+
+  if (checking) return (
+    <div style={{ minHeight: "100vh", maxWidth: 430, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#F7F7F8" }}>
+      <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #C8102E", borderTopColor: "transparent", animation: "spin .8s linear infinite" }} />
+      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 
   if (!authed) return (
     <AuthPage
       onDone={u => { setUser(u); setAuthed(true); }}
-      onBusiness={() => window.location.hash = "#/business"} // ✅ fixed prop name
+      onBusiness={() => window.location.hash = "#/business"}
     />
   );
 
@@ -37,7 +73,7 @@ export default function App() {
       <Route path="/restaurant/:id" element={<RestaurantPage cart={cart} add={addToCart} rem={removeFromCart} cartCount={cartCount} cartTotal={cartTotal} setCart={setCart}/>}/>
       <Route path="/cart"           element={<CartPage cart={cart} add={addToCart} rem={removeFromCart} setCart={setCart} cartCount={cartCount}/>}/>
       <Route path="/orders"         element={<OrdersPage cartCount={cartCount}/>}/>
-      <Route path="/profile"        element={<ProfilePage user={user} cartCount={cartCount} onLogout={() => { setAuthed(false); setUser(null); setCart([]); }}/>}/>
+      <Route path="/profile"        element={<ProfilePage user={user} cartCount={cartCount} onLogout={handleLogout}/>}/>
       <Route path="/market"         element={<MarketPage cartCount={cartCount}/>}/>
       <Route path="/privacy"        element={<PrivacyPage/>}/>
       <Route path="/terms"          element={<TermsPage/>}/>
