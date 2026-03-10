@@ -1,9 +1,9 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  AuthPage.jsx — Login / Register flow
-//  ✅ OTP only — no fake Google/Apple bypass
+//  AuthPage.jsx — Real Supabase Email OTP Auth
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import { useState, useEffect } from "react";
 import { C, IcoCheck, IcoBack, IcoFork, IcoStore, IcoTruck } from "../components/Icons";
+import { supabase } from "../lib/supabase";
 
 function YougoLogo({ size = 36 }) {
   return (
@@ -24,16 +24,14 @@ function LoadSpinner({ size = 18, color = "white" }) {
   );
 }
 
-const FAKE_CODE = "12345";
-
 export default function AuthPage({ onDone, onBusiness }) {
   const [step, setStep]             = useState("splash");
-  const [phone, setPhone]           = useState("");
-  const [otp, setOtp]               = useState(["", "", "", "", ""]);
-  const [otpError, setOtpError]     = useState(false);
+  const [email, setEmail]           = useState("");
+  const [otp, setOtp]               = useState(["", "", "", "", "", ""]);
+  const [otpError, setOtpError]     = useState("");
+  const [emailError, setEmailError] = useState("");
   const [countdown, setCountdown]   = useState(60);
   const [canResend, setCanResend]   = useState(false);
-  const [phoneError, setPhoneError] = useState("");
   const [form, setForm]             = useState({ firstName: "", lastName: "", gender: "", age: "" });
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading]       = useState(false);
@@ -41,7 +39,7 @@ export default function AuthPage({ onDone, onBusiness }) {
 
   useEffect(() => {
     if (step !== "splash") return;
-    const t = setTimeout(() => setStep("phone"), 2600);
+    const t = setTimeout(() => setStep("email"), 2600);
     return () => clearTimeout(t);
   }, [step]);
 
@@ -54,36 +52,71 @@ export default function AuthPage({ onDone, onBusiness }) {
     return () => clearInterval(t);
   }, [step]);
 
-  function handlePhoneSubmit() {
-    const cleaned = phone.replace(/\D/g, "");
-    if (cleaned.length < 9) { setPhoneError("יש להזין מספר טלפון תקין"); return; }
-    setPhoneError(""); setLoading(true);
-    setTimeout(() => { setLoading(false); setStep("otp"); }, 1200);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const u = session.user;
+        const meta = u.user_metadata || {};
+        if (meta.firstName) {
+          onDone({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, gender: meta.gender, age: meta.age });
+        }
+      }
+    });
+  }, []);
+
+  async function handleEmailSubmit() {
+    const cleaned = email.trim().toLowerCase();
+    if (!cleaned || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned)) {
+      setEmailError("יש להזין כתובת אימייל תקינה"); return;
+    }
+    setEmailError(""); setLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({ email: cleaned });
+    setLoading(false);
+    if (error) { setEmailError("שגיאה בשליחת הקוד, נסה שוב"); return; }
+    setStep("otp");
   }
 
   function handleOtpChange(idx, val) {
     if (!/^\d*$/.test(val)) return;
     const next = otp.slice(); next[idx] = val.slice(-1);
-    setOtp(next); setOtpError(false);
-    if (val && idx < 4) { const el = document.getElementById("otp-" + (idx + 1)); if (el) el.focus(); }
-    const code = next.join("");
-    if (code.length === 5) {
-      setTimeout(() => {
-        if (code === FAKE_CODE) {
-          setLoading(true);
-          setTimeout(() => { setLoading(false); setStep("register"); }, 800);
-        } else {
-          setOtpError(true); setOtp(["", "", "", "", ""]);
-          setTimeout(() => { const el = document.getElementById("otp-0"); if (el) el.focus(); }, 100);
-        }
-      }, 300);
-    }
+    setOtp(next); setOtpError("");
+    if (val && idx < 5) { const el = document.getElementById("otp-" + (idx + 1)); if (el) el.focus(); }
+    if (next.join("").length === 6) verifyOtp(next.join(""));
   }
 
   function handleOtpKey(idx, e) {
     if (e.key === "Backspace" && !otp[idx] && idx > 0) {
       const el = document.getElementById("otp-" + (idx - 1)); if (el) el.focus();
     }
+  }
+
+  async function verifyOtp(code) {
+    setLoading(true);
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: code,
+      type: "email",
+    });
+    setLoading(false);
+    if (error) {
+      setOtpError("הקוד שגוי, נסה שוב");
+      setOtp(["", "", "", "", "", ""]);
+      setTimeout(() => { const el = document.getElementById("otp-0"); if (el) el.focus(); }, 100);
+      return;
+    }
+    const u = data.user;
+    const meta = u?.user_metadata || {};
+    if (meta.firstName) {
+      onDone({ id: u.id, email: u.email, name: meta.firstName + " " + meta.lastName, firstName: meta.firstName, gender: meta.gender, age: meta.age });
+    } else {
+      setStep("register");
+    }
+  }
+
+  async function handleResend() {
+    setOtp(["", "", "", "", "", ""]); setOtpError("");
+    await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase() });
+    setStep("otp");
   }
 
   function validateForm() {
@@ -96,19 +129,24 @@ export default function AuthPage({ onDone, onBusiness }) {
     return errs;
   }
 
-  function handleRegister() {
+  async function handleRegister() {
     const errs = validateForm();
     if (Object.keys(errs).length > 0) { setFormErrors(errs); return; }
     setLoading(true);
+    const { error } = await supabase.auth.updateUser({
+      data: { firstName: form.firstName, lastName: form.lastName, gender: form.gender, age: form.age }
+    });
+    setLoading(false);
+    if (error) return;
+    setSuccess(true);
     setTimeout(() => {
-      setLoading(false); setSuccess(true);
-      setTimeout(() => {
-        onDone({ name: form.firstName + " " + form.lastName, phone, gender: form.gender, age: form.age });
-      }, 1600);
-    }, 1000);
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        onDone({ id: user.id, email: user.email, name: form.firstName + " " + form.lastName, firstName: form.firstName, gender: form.gender, age: form.age });
+      });
+    }, 1600);
   }
 
-  // ── SPLASH ─────────────────────────────────────
+  // SPLASH
   if (step === "splash") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: "linear-gradient(160deg,#C8102E 0%,#7B0D1E 60%,#3D0511 100%)", minHeight: "100vh", maxWidth: 430, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", direction: "rtl" }}>
       <div style={{ position: "absolute", width: 400, height: 400, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.06)", top: -100, left: -100 }} />
@@ -131,36 +169,31 @@ export default function AuthPage({ onDone, onBusiness }) {
     </div>
   );
 
-  // ── PHONE ──────────────────────────────────────
-  if (step === "phone") return (
+  // EMAIL
+  if (step === "email") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: C.bg, minHeight: "100vh", maxWidth: 430, margin: "0 auto", direction: "rtl", display: "flex", flexDirection: "column" }}>
       <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "40px 24px 60px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", bottom: -30, left: 0, right: 0, height: 60, background: C.bg, borderRadius: "50% 50% 0 0" }} />
         <div style={{ marginBottom: 16 }}><YougoLogo size={44} /></div>
         <div style={{ color: "white", fontSize: 26, fontWeight: 900 }}>ברוך הבא!</div>
-        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, marginTop: 6 }}>הזן את מספר הטלפון שלך להמשך</div>
+        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, marginTop: 6 }}>הזן את האימייל שלך להמשך</div>
       </div>
       <div style={{ flex: 1, padding: "30px 24px" }}>
-        <div style={{ fontSize: 13, color: C.gray, marginBottom: 6, fontWeight: 600 }}>מספר טלפון</div>
-        <div style={{ display: "flex", gap: 10, marginBottom: 4 }}>
-          <div style={{ background: "white", border: "1.5px solid " + C.lightGray, borderRadius: 14, padding: "13px 14px", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <span style={{ fontSize: 18 }}>🇮🇱</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: C.dark }}>+972</span>
-          </div>
-          <input value={phone} onChange={e => { setPhone(e.target.value); setPhoneError(""); }}
-            onKeyDown={e => { if (e.key === "Enter") handlePhoneSubmit(); }}
-            placeholder="05X-XXX-XXXX" maxLength={12}
-            style={{ flex: 1, background: "white", border: "1.5px solid " + (phoneError ? C.red : C.lightGray), borderRadius: 14, padding: "13px 16px", fontSize: 16, outline: "none", direction: "ltr", textAlign: "left", fontFamily: "Arial,sans-serif", color: C.dark }} />
-        </div>
-        {phoneError && <div style={{ color: C.red, fontSize: 12, marginBottom: 8 }}>{phoneError}</div>}
-        <div style={{ color: C.gray, fontSize: 11, marginBottom: 28, marginTop: 8 }}>נשלח לך קוד אימות ב-SMS לאישור זהותך</div>
-
-        <button onClick={handlePhoneSubmit} disabled={loading}
+        <div style={{ fontSize: 13, color: C.gray, marginBottom: 6, fontWeight: 600 }}>כתובת אימייל</div>
+        <input
+          value={email}
+          onChange={e => { setEmail(e.target.value); setEmailError(""); }}
+          onKeyDown={e => { if (e.key === "Enter") handleEmailSubmit(); }}
+          placeholder="example@email.com"
+          type="email"
+          style={{ width: "100%", background: "white", border: "1.5px solid " + (emailError ? C.red : C.lightGray), borderRadius: 14, padding: "13px 16px", fontSize: 15, outline: "none", direction: "ltr", textAlign: "left", fontFamily: "Arial,sans-serif", color: C.dark, marginBottom: 4 }}
+        />
+        {emailError && <div style={{ color: C.red, fontSize: 12, marginBottom: 8 }}>{emailError}</div>}
+        <div style={{ color: C.gray, fontSize: 11, marginBottom: 28, marginTop: 8 }}>נשלח לך קוד אימות לאימייל שלך</div>
+        <button onClick={handleEmailSubmit} disabled={loading}
           style={{ width: "100%", background: loading ? "rgba(200,16,46,0.5)" : C.red, color: "white", border: "none", borderRadius: 16, padding: "15px", fontSize: 15, fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 6px 20px rgba(200,16,46,0.35)" }}>
           {loading ? <><LoadSpinner />שולח קוד...</> : <><IcoCheck s={18} c="white" />המשך</>}
         </button>
-
-        {/* Google / Apple — disabled, coming soon */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "24px 0" }}>
           <div style={{ flex: 1, height: 1, background: C.lightGray }} />
           <span style={{ color: C.gray, fontSize: 12 }}>או המשך עם</span>
@@ -176,7 +209,6 @@ export default function AuthPage({ onDone, onBusiness }) {
             Apple — قريباً
           </button>
         </div>
-
         <div style={{ marginTop: 20, borderTop: "1.5px solid " + C.lightGray, paddingTop: 20 }}>
           <div style={{ textAlign: "center", fontSize: 12, color: C.gray, marginBottom: 10, fontWeight: 600 }}>هل لديك مطعم أو متجر؟</div>
           <button onClick={onBusiness}
@@ -192,37 +224,34 @@ export default function AuthPage({ onDone, onBusiness }) {
     </div>
   );
 
-  // ── OTP ────────────────────────────────────────
+  // OTP
   if (step === "otp") return (
     <div style={{ fontFamily: "Arial,sans-serif", background: C.bg, minHeight: "100vh", maxWidth: 430, margin: "0 auto", direction: "rtl", display: "flex", flexDirection: "column" }}>
       <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "40px 24px 60px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", bottom: -30, left: 0, right: 0, height: 60, background: C.bg, borderRadius: "50% 50% 0 0" }} />
-        <button onClick={() => { setStep("phone"); setOtp(["", "", "", "", ""]); setOtpError(false); }}
+        <button onClick={() => { setStep("email"); setOtp(["", "", "", "", "", ""]); setOtpError(""); }}
           style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginBottom: 16 }}>
           <IcoBack s={18} c="white" />
         </button>
-        <div style={{ color: "white", fontSize: 26, fontWeight: 900 }}>אימות מספר</div>
-        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, marginTop: 6 }}>שלחנו קוד אימות ל-<span style={{ fontWeight: 700 }}>{phone}</span></div>
+        <div style={{ color: "white", fontSize: 26, fontWeight: 900 }}>אימות אימייל</div>
+        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, marginTop: 6 }}>שלחנו קוד אימות ל-<span style={{ fontWeight: 700 }}>{email}</span></div>
       </div>
       <div style={{ flex: 1, padding: "30px 24px" }}>
-        <div style={{ fontSize: 14, color: C.dark, fontWeight: 700, marginBottom: 20, textAlign: "center" }}>הזן את הקוד בן 5 הספרות</div>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 8, direction: "ltr" }}>
+        <div style={{ fontSize: 14, color: C.dark, fontWeight: 700, marginBottom: 20, textAlign: "center" }}>הזן את הקוד בן 6 הספרות</div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 8, direction: "ltr" }}>
           {otp.map((digit, idx) => (
             <input key={idx} id={"otp-" + idx} value={digit}
               onChange={e => handleOtpChange(idx, e.target.value)}
               onKeyDown={e => handleOtpKey(idx, e)}
               maxLength={1}
-              style={{ width: 52, height: 60, textAlign: "center", fontSize: 24, fontWeight: 900, border: "2px solid " + (otpError ? C.red : digit ? C.red : C.lightGray), borderRadius: 14, outline: "none", background: digit ? "rgba(200,16,46,0.05)" : "white", color: otpError ? "#EF4444" : C.dark, fontFamily: "Arial,sans-serif" }} />
+              style={{ width: 46, height: 56, textAlign: "center", fontSize: 22, fontWeight: 900, border: "2px solid " + (otpError ? C.red : digit ? C.red : C.lightGray), borderRadius: 14, outline: "none", background: digit ? "rgba(200,16,46,0.05)" : "white", color: otpError ? "#EF4444" : C.dark, fontFamily: "Arial,sans-serif" }} />
           ))}
         </div>
-        {otpError && <div style={{ textAlign: "center", color: "#EF4444", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>הקוד שגוי, נסה שוב</div>}
+        {otpError && <div style={{ textAlign: "center", color: "#EF4444", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{otpError}</div>}
         {loading && <div style={{ textAlign: "center", marginBottom: 16 }}><LoadSpinner size={24} color={C.red} /></div>}
-        <div style={{ textAlign: "center", color: C.gray, fontSize: 11, marginBottom: 16, background: C.ultra, borderRadius: 10, padding: "8px" }}>
-          🧪 לבדיקה בלבד — הקוד: <span style={{ fontWeight: 900, color: C.red, letterSpacing: 2 }}>12345</span>
-        </div>
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <div style={{ textAlign: "center", marginBottom: 24, marginTop: 16 }}>
           {canResend
-            ? <button onClick={() => { setStep("otp"); setOtp(["", "", "", "", ""]); }} style={{ background: "none", border: "none", color: C.red, fontSize: 13, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>שלח קוד חדש</button>
+            ? <button onClick={handleResend} style={{ background: "none", border: "none", color: C.red, fontSize: 13, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>שלח קוד חדש</button>
             : <div style={{ color: C.gray, fontSize: 12 }}>שלח קוד חדש בעוד <span style={{ color: C.red, fontWeight: 700 }}>{countdown}</span> שניות</div>
           }
         </div>
@@ -231,7 +260,7 @@ export default function AuthPage({ onDone, onBusiness }) {
     </div>
   );
 
-  // ── REGISTER ───────────────────────────────────
+  // REGISTER
   if (step === "register") {
     if (success) return (
       <div style={{ fontFamily: "Arial,sans-serif", background: "linear-gradient(160deg,#C8102E,#7B0D1E)", minHeight: "100vh", maxWidth: 430, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", direction: "rtl" }}>
@@ -246,7 +275,6 @@ export default function AuthPage({ onDone, onBusiness }) {
         <style>{`@keyframes successPop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}*{box-sizing:border-box}`}</style>
       </div>
     );
-
     return (
       <div style={{ fontFamily: "Arial,sans-serif", background: C.bg, minHeight: "100vh", maxWidth: 430, margin: "0 auto", direction: "rtl", display: "flex", flexDirection: "column" }}>
         <div style={{ background: "linear-gradient(160deg,#C8102E,#9B0B22)", padding: "36px 24px 55px", position: "relative", overflow: "hidden" }}>
@@ -297,6 +325,5 @@ export default function AuthPage({ onDone, onBusiness }) {
       </div>
     );
   }
-
   return null;
 }
